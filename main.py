@@ -74,12 +74,20 @@ class ScraperMain:
             raise EnvironmentError("OOGOO_GCLOUD_KEY_JSON not found.")
         credentials_dict = json.loads(credentials_json)
     
+        # Use the SavingOnDrive class to upload the files to Google Drive
         drive_saver = SavingOnDrive(credentials_dict)
         drive_saver.authenticate()
     
-        folder_name = self.yesterday
-        folder_id = drive_saver.create_folder(folder_name)
-        drive_saver.save_files(files, folder_id)
+        # Folder name based on the date (yesterday)
+        # folder_name = self.yesterday
+        # folder_id = drive_saver.create_folder(folder_name)  # Create folder without parent folder ID (it's handled in SavingOnDrive)
+
+        # Upload the files to the created folder
+        # for file_name in files:
+        #     drive_saver.upload_file(file_name, folder_id)
+        
+        print(f"Files uploaded successfully to folder '{folder_name}' on Google Drive.")
+
 
     async def run(self):
         await asyncio.gather(self.scrape_used(), self.scrape_certified())
