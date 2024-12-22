@@ -70,42 +70,45 @@ class ScraperMain:
             df.to_excel(writer, sheet_name=name.lower(), index=False)
         print(f"Saved {file_name}")
         return file_name
-
+    
     def upload_to_drive(self, files):
         print("Uploading to Google Drive...")
- # Load the service account JSON key from the GitHub secret
+    
+        # Debug: Log the environment variable content length
         credentials_json = os.environ.get('OOGOO_GCLOUD_KEY_JSON')
         if not credentials_json:
             raise EnvironmentError("OOGOO_GCLOUD_KEY_JSON environment variable not found.")
     
+        print(f"Loaded OOGOO_GCLOUD_KEY_JSON: {len(credentials_json)} characters")
         credentials_dict = json.loads(credentials_json)
 
-        print("Excel files: ", ScraperMain.excel_files)
+        print(f"Excel files: {files}")
 
         # Initialize the SavingOnDrive class
         drive_saver = SavingOnDrive(credentials_dict)
         drive_saver.authenticate()
-    
-        # Folder name based on the date (yesterday)
-        # folder_name = self.yesterday
-        # folder_id = drive_saver.create_folder(folder_name)  # Create folder without parent folder ID (it's handled in SavingOnDrive)
 
-        # Upload the files to the created folder
-        # for file_name in files:
-        #     drive_saver.upload_file(file_name, folder_id)
-        
-        print(f"Files uploaded successfully to folder '{folder_name}' on Google Drive.")
+        # Folder name based on the date (yesterday)
+        folder_name = self.yesterday  # Ensure folder name is set
+    
+        # Upload the files to Google Drive
+        for file_name in files:
+            drive_saver.upload_file(file_name)
+            print(f"Uploaded {file_name} to Google Drive.")
+    
+        print(f"Files uploaded successfully.")
 
 
     async def run(self):
         await asyncio.gather(self.scrape_used(), self.scrape_certified())
         files = self.save_to_excel()
-        print(files)
+        print(f"Files to upload: {files}")
         if files:
             self.upload_to_drive(files)
-            print("data to upload.")
+            print("Data uploaded.")
         else:
             print("No data to upload.")
+
 
 if __name__ == "__main__":
     scraper = ScraperMain()
