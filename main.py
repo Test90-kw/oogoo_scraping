@@ -67,25 +67,25 @@ class ScraperMain:
         print(f"Saved {file_name}")
         return file_name
 
-    # def upload_to_drive(self, files):
-    #     print("Uploading to Google Drive...")
-    #     credentials_json = os.environ.get('CAR_GCLOUD_KEY_JSON')
-    #     if not credentials_json:
-    #         raise EnvironmentError("CAR_GCLOUD_KEY_JSON not found.")
-    #     credentials_dict = json.loads(credentials_json)
-    #
-    #     drive_saver = SavingOnDrive(credentials_dict)
-    #     drive_saver.authenticate()
-    #
-    #     folder_name = self.yesterday
-    #     folder_id = drive_saver.create_folder(folder_name)
-    #     drive_saver.save_files(files, folder_id)
+    def upload_to_drive(self, files):
+        print("Uploading to Google Drive...")
+        credentials_json = os.environ.get('OOGOO_GCLOUD_KEY_JSON')
+        if not credentials_json:
+            raise EnvironmentError("OOGOO_GCLOUD_KEY_JSON not found.")
+        credentials_dict = json.loads(credentials_json)
+    
+        drive_saver = SavingOnDrive(credentials_dict)
+        drive_saver.authenticate()
+    
+        folder_name = self.yesterday
+        folder_id = drive_saver.create_folder(folder_name)
+        drive_saver.save_files(files, folder_id)
 
     async def run(self):
         await asyncio.gather(self.scrape_used(), self.scrape_certified())
         files = self.save_to_excel()
         if files:
-            # self.upload_to_drive(files)
+            self.upload_to_drive(files)
             print("data to upload.")
         else:
             print("No data to upload.")
