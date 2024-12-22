@@ -2,7 +2,7 @@ name: Scraper Workflow
 
 on:
   schedule:
-    - cron: '15 0 * * *' # Runs every day
+    - cron: '15 0 * * *'  # Runs every day
   workflow_dispatch:  # Allows manual triggering
   
 concurrency:
@@ -27,26 +27,28 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+
       - name: Install Playwright for Python
         run: |
           python -m pip install --upgrade pip
           pip install playwright
           python -m playwright install
-      # - name: Fix PhantomJS Issue
-      #   run: |
-      #     npm uninstall phantomjs-prebuilt
-      #     npm install phantomjs-prebuilt@2.1.13
-      #     npm cache clear --force
-      #     npm install
-      - name: Print environment variables (for debugging)
-        run: echo $OOGOO_GCLOUD_KEY_JSON
-        
+
+      - name: Verify OOGOO_GCLOUD_KEY_JSON environment variable
+        run: |
+          if [ -z "$OOGOO_GCLOUD_KEY_JSON" ]; then
+            echo "OOGOO_GCLOUD_KEY_JSON is not set!"
+            exit 1
+          else
+            echo "OOGOO_GCLOUD_KEY_JSON is set correctly."
+          fi
+
       - name: Run the scraper
         env:
           OOGOO_GCLOUD_KEY_JSON: ${{ secrets.OOGOO_GCLOUD_KEY_JSON }}
         run: |
           python main.py
-      
+          
       - name: Cleanup
         run: |
           # Any cleanup steps (optional)
