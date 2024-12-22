@@ -7,6 +7,10 @@ from oogoo_used import OogooUsed
 from oogoo_certified import OogooCertified
 from SavingOnDrive import SavingOnDrive
 
+# Check if the environment variable is set
+if 'OOGOO_GCLOUD_KEY_JSON' not in os.environ:
+    raise EnvironmentError("OOGOO_GCLOUD_KEY_JSON not found.")
+
 class ScraperMain:
     def __init__(self):
         self.yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
