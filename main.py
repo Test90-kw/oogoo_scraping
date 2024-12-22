@@ -84,20 +84,24 @@ class ScraperMain:
 
         print(f"Excel files: {files}")
 
-        # Initialize the SavingOnDrive class
-        drive_saver = SavingOnDrive(credentials_dict)
-        drive_saver.authenticate()
+       # Initialize the SavingOnDrive class
+       drive_saver = SavingOnDrive(credentials_dict)
+       drive_saver.authenticate()
 
-        # Folder name based on the date (yesterday)
-        folder_name = self.yesterday  # Ensure folder name is set
+       # Folder name based on the date (yesterday)
+       folder_name = self.yesterday  # Ensure folder name is set
+       parent_folder_id = '1ayaYWPFnswsOP2nRiDtiwGuy_r43Dr3F'  # Parent folder ID for uploads
     
-        # Upload the files to Google Drive
-        for file_name in files:
-            drive_saver.upload_file(file_name)
+       # Create a folder for the day (yesterday)
+       folder_id = drive_saver.create_folder(folder_name, parent_folder_id)
+       print(f"Created folder '{folder_name}' with ID: {folder_id}")
+    
+       # Upload the files to Google Drive
+       for file_name in files:
+            drive_saver.upload_file(file_name, folder_id)
             print(f"Uploaded {file_name} to Google Drive.")
-    
-        print(f"Files uploaded successfully.")
 
+        print("Files uploaded successfully.")
 
     async def run(self):
         await asyncio.gather(self.scrape_used(), self.scrape_certified())
