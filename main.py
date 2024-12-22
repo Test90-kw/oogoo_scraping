@@ -73,12 +73,16 @@ class ScraperMain:
 
     def upload_to_drive(self, files):
         print("Uploading to Google Drive...")
+ # Load the service account JSON key from the GitHub secret
         credentials_json = os.environ.get('OOGOO_GCLOUD_KEY_JSON')
         if not credentials_json:
-            raise EnvironmentError("OOGOO_GCLOUD_KEY_JSON not found.")
-        credentials_dict = json.loads(credentials_json)
+            raise EnvironmentError("OOGOO_GCLOUD_KEY_JSON environment variable not found.")
     
-        # Use the SavingOnDrive class to upload the files to Google Drive
+        credentials_dict = json.loads(credentials_json)
+
+        print("Excel files: ", ScraperMain.excel_files)
+
+        # Initialize the SavingOnDrive class
         drive_saver = SavingOnDrive(credentials_dict)
         drive_saver.authenticate()
     
@@ -96,6 +100,7 @@ class ScraperMain:
     async def run(self):
         await asyncio.gather(self.scrape_used(), self.scrape_certified())
         files = self.save_to_excel()
+        print(files)
         if files:
             self.upload_to_drive(files)
             print("data to upload.")
