@@ -33,18 +33,18 @@ jobs:
           python -m pip install playwright
           python -m playwright install
 
-      - name: Verify OOGOO_GCLOUD_KEY_JSON environment variable
+      - name: Verify OGO_GCLOUD_KEY_JSON environment variable
         run: |
-          if [ -z "$OOGOO_GCLOUD_KEY_JSON" ]; then
-            echo "OOGOO_GCLOUD_KEY_JSON is not set!"
+          if [ -z "$OGO_GCLOUD_KEY_JSON" ]; then
+            echo "OGO_GCLOUD_KEY_JSON is not set!"
             exit 1
           else
-            echo "OOGOO_GCLOUD_KEY_JSON is set correctly."
+            echo "OGO_GCLOUD_KEY_JSON is set correctly."
           fi
 
       - name: Run the scraper
         env:
-          OOGOO_GCLOUD_KEY_JSON: ${{ secrets.OOGOO_GCLOUD_KEY_JSON }}
+          OGO_GCLOUD_KEY_JSON: ${{ secrets.OGO_GCLOUD_KEY_JSON }}
         run: |
           python main.py
 
