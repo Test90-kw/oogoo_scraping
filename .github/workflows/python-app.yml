@@ -33,10 +33,8 @@ jobs:
           python -m pip install playwright
           python -m playwright install
 
-      - name: Set Google Cloud credentials
-        run: echo "${{ secrets.OGO_GCLOUD_KEY_JSON }}" > /tmp/gcloud-key.json
-        env:
-          OGO_GCLOUD_KEY_JSON: ${{ secrets.OGO_GCLOUD_KEY_JSON }}
+      - name: Set Google Cloud credentials in environment file
+        run: echo "OGO_GCLOUD_KEY_JSON=${{ secrets.OGO_GCLOUD_KEY_JSON }}" >> $GITHUB_ENV
 
       - name: Run the scraper
         run: |
