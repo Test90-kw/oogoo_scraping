@@ -45,7 +45,7 @@ jobs:
 
       - name: Run the scraper
         env:
-          OOGOO_GCLOUD_KEY_JSON: ${secrets.OOGOO_GCLOUD_KEY_JSON}
+          OOGOO_GCLOUD_KEY_JSON: ${{secrets.OOGOO_GCLOUD_KEY_JSON}}
         run: |
           python main.py
           
