@@ -10,6 +10,16 @@ import os
 # Allow nested event loops
 nest_asyncio.apply()
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('showrooms_scraper.log'),
+        logging.StreamHandler()
+    ]
+)
+
 class OogooShowroomScraping:
     def __init__(self, url, retries=3):
         self.url = url
@@ -120,19 +130,52 @@ class OogooShowroomScraping:
             return False
 
 async def main():
-    # Get credentials from environment variable
-    credentials_json = os.environ.get('SHOWROOMS_GCLOUD_KEY_JSON')
-    if not credentials_json:
-        raise EnvironmentError("SHOWROOMS_GCLOUD_KEY_JSON environment variable not found")
-    
-    credentials_dict = json.loads(credentials_json)
-
-    # Initialize and run scraper
-    scraper = OogooShowroomScraping("https://oogoocar.com/ar/explore/showrooms")
-    await scraper.get_car_details()
-    
-    # Upload results to Google Drive
-    scraper.upload_to_drive(credentials_dict)
+    try:
+        # Get credentials from environment variable
+        credentials_json = os.environ.get('SHOWROOMS_GCLOUD_KEY_JSON')
+        if not credentials_json:
+            raise EnvironmentError("SHOWROOMS_GCLOUD_KEY_JSON environment variable not found")
+        
+        credentials_dict = json.loads(credentials_json)
+        
+        # Initialize Google Drive uploader
+        drive_saver = SavingOnDrive(credentials_dict)
+        drive_saver.authenticate()
+        
+        # Your scraping code here
+        scraper = DetailsScraping("https://oogoocar.com/ar/explore/showrooms")
+        data = await scraper.get_car_details()
+        
+        # Save to Excel
+        if data:
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            excel_file = f'showrooms_data_{timestamp}.xlsx'
+            
+            df = pd.DataFrame(data)
+            df.to_excel(excel_file, index=False)
+            
+            # Upload to specific folder in Google Drive
+            parent_folder_id = '1hLSbEqCR9A0DJiZrhivYeJyqVhZnpVHg'
+            today_folder = drive_saver.create_folder(
+                datetime.now().strftime('%Y-%m-%d'),
+                parent_folder_id
+            )
+            
+            drive_saver.upload_file(excel_file, today_folder)
+            logging.info(f"Successfully uploaded {excel_file} to Google Drive")
+            
+            # Cleanup
+            try:
+                os.remove(excel_file)
+                logging.info(f"Cleaned up local file: {excel_file}")
+            except Exception as e:
+                logging.error(f"Error cleaning up file: {str(e)}")
+        else:
+            logging.warning("No data was scraped")
+            
+    except Exception as e:
+        logging.error(f"Error in main execution: {str(e)}")
+        raise
 
 if __name__ == "__main__":
     asyncio.run(main())
