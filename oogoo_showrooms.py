@@ -1,3 +1,4 @@
+import logging
 import asyncio
 from playwright.async_api import async_playwright
 import nest_asyncio
@@ -57,9 +58,9 @@ class OogooShowroomScraping:
                     break
 
                 except Exception as e:
-                    print(f"Attempt {attempt + 1} failed for {self.url}: {e}")
+                    logging.error(f"Attempt {attempt + 1} failed for {self.url}: {e}")
                     if attempt + 1 == self.retries:
-                        print(f"Max retries reached for {self.url}. Returning partial results.")
+                        logging.error(f"Max retries reached for {self.url}. Returning partial results.")
                         break
                 finally:
                     await page.close()
@@ -69,12 +70,10 @@ class OogooShowroomScraping:
             await browser.close()
             return self.cars
 
-    # ... [keep all the existing scraping methods the same] ...
-
     def save_to_excel(self):
         """Save scraped data to Excel file"""
         if not self.cars:
-            print("No data to save to Excel")
+            logging.warning("No data to save to Excel")
             return None
 
         # Create DataFrame
@@ -87,10 +86,10 @@ class OogooShowroomScraping:
         try:
             # Save to Excel
             df.to_excel(excel_filename, index=False, engine='openpyxl')
-            print(f"Data saved to {excel_filename}")
+            logging.info(f"Data saved to {excel_filename}")
             return excel_filename
         except Exception as e:
-            print(f"Error saving to Excel: {e}")
+            logging.error(f"Error saving to Excel: {e}")
             return None
 
     def upload_to_drive(self, credentials_dict):
@@ -118,15 +117,15 @@ class OogooShowroomScraping:
             # Clean up local file
             try:
                 os.remove(excel_file)
-                print(f"Local file {excel_file} cleaned up")
+                logging.info(f"Local file {excel_file} cleaned up")
             except Exception as e:
-                print(f"Error cleaning up local file: {e}")
+                logging.error(f"Error cleaning up local file: {e}")
 
-            print(f"File uploaded successfully to Google Drive folder '{today}'")
+            logging.info(f"File uploaded successfully to Google Drive folder '{today}'")
             return True
 
         except Exception as e:
-            print(f"Error uploading to Google Drive: {e}")
+            logging.error(f"Error uploading to Google Drive: {e}")
             return False
 
 async def main():
@@ -143,7 +142,7 @@ async def main():
         drive_saver.authenticate()
         
         # Your scraping code here
-        scraper = DetailsScraping("https://oogoocar.com/ar/explore/showrooms")
+        scraper = OogooShowroomScraping("https://oogoocar.com/ar/explore/showrooms")
         data = await scraper.get_car_details()
         
         # Save to Excel
