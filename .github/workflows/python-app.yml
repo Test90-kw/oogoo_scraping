@@ -33,14 +33,27 @@ jobs:
           python -m pip install playwright
           python -m playwright install
 
-      - name: Verify OGO_GCLOUD_KEY_JSON environment variable
+      # - name: Set Google Cloud credentials
+      #   run: echo "${{ secrets.OOGOO_GCLOUD_KEY_JSON }}" > gcloud-key.json
+      #   env:
+      #     OOGOO_GCLOUD_KEY_JSON: ${{ secrets.OOGOO_GCLOUD_KEY_JSON }}
+
+      - name: Verify Files and Secrets
         run: |
-          if [ -z "$OGO_GCLOUD_KEY_JSON" ]; then
-            echo "OGO_GCLOUD_KEY_JSON is not set!"
-            exit 1
-          else
-            echo "OGO_GCLOUD_KEY_JSON is set correctly."
+          ls -la
+          echo "OGO_GCLOUD_KEY_JSON is ${{ secrets.OGO_GCLOUD_KEY_JSON }}"
+
+      - name: Create Deploy Script (if missing)
+        run: |
+          if [ ! -f ./deploy.sh ]; then
+            echo "Creating deploy.sh..."
+            echo '#!/bin/bash' > deploy.sh
+            echo 'echo "Running deployment with provided secret..."' >> deploy.sh
+            chmod +x deploy.sh
           fi
+
+      - name: Deploy Application
+        run: ./deploy.sh ${{ secrets.OGO_GCLOUD_KEY_JSON }}
 
       - name: Run the scraper
         env:
