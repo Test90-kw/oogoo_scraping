@@ -72,37 +72,40 @@ class ScraperMain:
         print(f"Saved {file_name}")
         return file_name
     
-    def upload_to_drive(self, files):
-        print("Uploading to Google Drive...")
-
-        # Debugging step: check the length of the credentials for confirmation
-        # print(f"Loaded OGO_GCLOUD_KEY_JSON: {len(credentials_json)} characters")
-
-        try:
-            credentials_dict = json.loads(credentials_json)
-        except json.JSONDecodeError as e:
-            raise ValueError("Failed to parse the OGO_GCLOUD_KEY_JSON environment variable.") from e
-
-        print(f"Excel files: {files}")
-
-        # Initialize the SavingOnDrive class
-        drive_saver = SavingOnDrive(credentials_dict)
-        drive_saver.authenticate()
-
-        # Folder name based on the date (yesterday)
-        folder_name = self.yesterday  # Ensure folder name is set
-        parent_folder_id = '1ayaYWPFnswsOP2nRiDtiwGuy_r43Dr3F'  # Parent folder ID for uploads
-
-        # Create a folder for the day (yesterday)
-        folder_id = drive_saver.create_folder(folder_name, parent_folder_id)
-        print(f"Created folder '{folder_name}' with ID: {folder_id}")
+def upload_to_drive(self, files):
+    print(f"Excel files: {files}")  # Debugging step
+    if not files:
+        print("No files to upload.")
+        return
     
-        # Upload the files to Google Drive
-        for file_name in files:
-            drive_saver.upload_file(file_name, folder_id)
-            print(f"Uploaded {file_name} to Google Drive.")
+    try:
+        credentials_dict = json.loads(credentials_json)
+    except json.JSONDecodeError as e:
+        raise ValueError("Failed to parse the OGO_GCLOUD_KEY_JSON environment variable.") from e
 
-        print("Files uploaded successfully.")
+    # Debugging: check if the credentials are loaded
+    print(f"Loaded credentials: {credentials_dict}")
+
+    # Initialize the SavingOnDrive class
+    drive_saver = SavingOnDrive(credentials_dict)
+    drive_saver.authenticate()
+
+    # Folder name based on the date (yesterday)
+    folder_name = self.yesterday  # Ensure folder name is set
+    parent_folder_id = '1ayaYWPFnswsOP2nRiDtiwGuy_r43Dr3F'  # Parent folder ID for uploads
+
+    # Create a folder for the day (yesterday)
+    folder_id = drive_saver.create_folder(folder_name, parent_folder_id)
+    print(f"Created folder '{folder_name}' with ID: {folder_id}")
+
+    # Upload the files to Google Drive
+    for file_name in files:
+        print(f"Uploading {file_name}...")  # Debugging step
+        drive_saver.upload_file(file_name, folder_id)
+        print(f"Uploaded {file_name} to Google Drive.")
+
+    print("Files uploaded successfully.")
+
 
     async def run(self):
         await asyncio.gather(self.scrape_used(), self.scrape_certified())
