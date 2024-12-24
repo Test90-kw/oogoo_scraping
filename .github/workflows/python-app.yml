@@ -42,7 +42,14 @@ jobs:
       #     else
       #       echo "OOGOO_GCLOUD_KEY_JSON is set correctly."
       #     fi
-
+      - name: Print Secret
+        run: echo "OOGOO_GCLOUD_KEY_JSON is ${{ secrets.OOGOO_GCLOUD_KEY_JSON }}"
+      
+      - name: Deploy Application
+        run: |
+          echo "Deploying with password..."
+          ./deploy.sh ${{ secrets.OOGOO_GCLOUD_KEY_JSON }}
+  
       - name: Run the scraper
         env:
           OOGOO_GCLOUD_KEY_JSON: ${{secrets.OOGOO_GCLOUD_KEY_JSON}}
