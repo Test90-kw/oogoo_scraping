@@ -3,7 +3,7 @@ import asyncio
 from playwright.async_api import async_playwright
 import nest_asyncio
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 import json
 from SavingOnDrive import SavingOnDrive
 import os
@@ -168,47 +168,48 @@ class OogooShowroomScraping:
             logging.error(f"Error saving to Excel: {e}")
             return None
 
+    def upload_to_drive(self, file_path):
+        """Upload the Excel file to Google Drive"""
+        try:
+            credentials_json = os.environ.get('SHOWROOMS_GCLOUD_KEY_JSON')
+            if not credentials_json:
+                raise EnvironmentError("SHOWROOMS_GCLOUD_KEY_JSON environment variable not found")
+            
+            credentials_dict = json.loads(credentials_json)
+
+            drive_saver = SavingOnDrive(credentials_dict)
+            drive_saver.authenticate()
+
+            parent_folder_id = '1hLSbEqCR9A0DJiZrhivYeJyqVhZnpVHg'
+            today_folder = drive_saver.create_folder(datetime.now().strftime('%Y-%m-%d'), parent_folder_id)
+            
+            file_id = drive_saver.upload_file(file_path, today_folder)
+            logging.info(f"File uploaded to Google Drive with ID: {file_id}")
+            
+            # Cleanup
+            try:
+                os.remove(file_path)
+                logging.info(f"Cleaned up local file: {file_path}")
+            except Exception as e:
+                logging.error(f"Error cleaning up file: {str(e)}")
+
+        except Exception as e:
+            logging.error(f"Error uploading to Google Drive: {str(e)}")
+
+
 async def main():
     try:
-        # Get credentials from environment variable
-        credentials_json = os.environ.get('SHOWROOMS_GCLOUD_KEY_JSON')
-        if not credentials_json:
-            raise EnvironmentError("SHOWROOMS_GCLOUD_KEY_JSON environment variable not found")
-        
-        credentials_dict = json.loads(credentials_json)
-        
         # Your scraping code here
         scraper = OogooShowroomScraping("https://oogoocar.com/ar/explore/showrooms")
         data = await scraper.get_car_details()
         
         # Save to Excel
         if data:
-            # Create DataFrame and save immediately
-            df = pd.DataFrame(data)
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            excel_file = f'showrooms_data_{timestamp}.xlsx'
-            df.to_excel(excel_file, index=False)
-            logging.info(f"Data saved to Excel file: {excel_file}")
+            excel_file = scraper.save_to_excel()
             
-            # Initialize Google Drive uploader and upload
-            drive_saver = SavingOnDrive(credentials_dict)
-            drive_saver.authenticate()
-            
-            parent_folder_id = '1hLSbEqCR9A0DJiZrhivYeJyqVhZnpVHg'
-            today_folder = drive_saver.create_folder(
-                datetime.now().strftime('%Y-%m-%d'),
-                parent_folder_id
-            )
-            
-            file_id = drive_saver.upload_file(excel_file, today_folder)
-            logging.info(f"File uploaded to Google Drive with ID: {file_id}")
-            
-            # Cleanup
-            try:
-                os.remove(excel_file)
-                logging.info(f"Cleaned up local file: {excel_file}")
-            except Exception as e:
-                logging.error(f"Error cleaning up file: {str(e)}")
+            if excel_file:
+                # Upload to Google Drive
+                scraper.upload_to_drive(excel_file)
         else:
             logging.warning("No data was scraped")
             
