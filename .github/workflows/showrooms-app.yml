@@ -2,17 +2,13 @@ name: Showrooms Scraper
 
 on:
   schedule:
-    - cron: '3 0 * * *'
-  workflow_dispatch:
-
-concurrency:
-  group: workflow-group
-  cancel-in-progress: true
+    - cron: '3 0 * * *'  # Run at 00:03 UTC every day
+  workflow_dispatch:  # Allow manual trigger
 
 jobs:
   scrape2:
     runs-on: ubuntu-latest
-    timeout-minutes: 700
+    timeout-minutes: 360  # Reduced to 6 hours (GitHub max)
 
     steps:
       - name: Checkout Repository
@@ -27,40 +23,27 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          
-      - name: Install Playwright for Python
+
+      - name: Install Playwright
         run: |
-          python -m pip install playwright
-          python -m playwright install
+          playwright install --with-deps chromium
 
-      # - name: Set Google Cloud credentials
-      #   run: echo "${{ secrets.OOGOO_GCLOUD_KEY_JSON }}" > gcloud-key.json
-      #   env:
-      #     OOGOO_GCLOUD_KEY_JSON: ${{ secrets.OOGOO_GCLOUD_KEY_JSON }}
-
-      - name: Verify Files and Secrets
+      - name: Create Service Account Key File
         run: |
-          ls -la
-          echo "SHOWROOMS_GCLOUD_KEY_JSON is ${{ secrets.SHOWROOMS_GCLOUD_KEY_JSON }}"
-
-      - name: Create Deploy Script (if missing)
-        run: |
-          if [ ! -f ./deploy.sh ]; then
-            echo "Creating deploy.sh..."
-            echo '#!/bin/bash' > deploy.sh
-            echo 'echo "Running deployment with provided secret..."' >> deploy.sh
-            chmod +x deploy.sh
-          fi
-
-      - name: Deploy Application
-        run: ./deploy.sh ${{ secrets.SHOWROOMS_GCLOUD_KEY_JSON }}
+          echo '${{ secrets.SHOWROOMS_GCLOUD_KEY_JSON }}' > service_account.json
+        shell: bash
 
       - name: Run the scraper
         env:
           SHOWROOMS_GCLOUD_KEY_JSON: ${{ secrets.SHOWROOMS_GCLOUD_KEY_JSON }}
         run: |
-          python main.py
+          python oogoo_showrooms.py
 
-      - name: Cleanup
-        run: |
-          # Any cleanup steps (optional)
+      - name: Upload Logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: scraper-logs
+          path: |
+            *.log
+            *.xlsx
