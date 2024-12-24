@@ -225,10 +225,10 @@ class OogooCertified:
         publish_time = current_time - timedelta(days=3)
         return publish_time.strftime("%Y-%m-%d %H:%M:%S")
 
-if __name__ == "__main__":
-    scraper = OogooCertified("https://oogoocar.com/ar/explore/featured/all/all/certified/all/list/0/basic?page=1") # 1 & 2
+# if __name__ == "__main__":
+#     scraper = OogooCertified("https://oogoocar.com/ar/explore/featured/all/all/certified/all/list/0/basic?page=1") # 1 & 2
 
-    cars = asyncio.run(scraper.get_car_details())
+#     cars = asyncio.run(scraper.get_car_details())
 
-    for car in cars:
-        print(car)
+#     for car in cars:
+#         print(car)
