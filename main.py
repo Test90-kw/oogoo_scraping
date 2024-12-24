@@ -7,12 +7,16 @@ from oogoo_used import OogooUsed
 from oogoo_certified import OogooCertified
 from SavingOnDrive import SavingOnDrive
 
+# Check if the environment variable is set
+if 'OGO_GCLOUD_KEY_JSON' not in os.environ:
+    raise EnvironmentError("OGO_GCLOUD_KEY_JSON not found.")
+
 class ScraperMain:
     def __init__(self):
         self.yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
         self.data_used = []
         self.data_certified = []
-        self.semaphore = asyncio.Semaphore(5)
+        self.semaphore = asyncio.Semaphore(5)  # Limit concurrency
 
     async def scrape_used(self):
         print("Scraping used cars...")
@@ -60,7 +64,7 @@ class ScraperMain:
         return files
 
     def create_excel(self, name, data):
-        file_name = f"/tmp/{name}.xlsx"  # Save to /tmp directory in GitHub Actions
+        file_name = f"{name}.xlsx"
         df = pd.DataFrame(data)
         with pd.ExcelWriter(file_name, engine='openpyxl') as writer:
             df.to_excel(writer, sheet_name=name.lower(), index=False)
@@ -69,7 +73,8 @@ class ScraperMain:
     
     def upload_to_drive(self, files):
         print("Uploading to Google Drive...")
-
+    
+        # Debug: Log the environment variable content length
         credentials_json = os.environ.get('OGO_GCLOUD_KEY_JSON')
         if not credentials_json:
             raise EnvironmentError("OGO_GCLOUD_KEY_JSON environment variable not found.")
@@ -84,7 +89,7 @@ class ScraperMain:
         drive_saver.authenticate()
 
         # Folder name based on the date (yesterday)
-        folder_name = self.yesterday
+        folder_name = self.yesterday  # Ensure folder name is set
         parent_folder_id = '1ayaYWPFnswsOP2nRiDtiwGuy_r43Dr3F'  # Parent folder ID for uploads
     
         # Create a folder for the day (yesterday)
@@ -97,13 +102,18 @@ class ScraperMain:
             print(f"Uploaded {file_name} to Google Drive.")
 
         print("Files uploaded successfully.")
-    
+
     async def run(self):
         await asyncio.gather(self.scrape_used(), self.scrape_certified())
         files = self.save_to_excel()
         print(f"Files to upload: {files}")
-        # if files:
-        #     self.upload_to_drive(files)
-        #     print("Data uploaded.")
-        # else:
-        #     print("No data to upload.")
+        if files:
+            self.upload_to_drive(files)
+            print("Data uploaded.")
+        else:
+            print("No data to upload.")
+
+
+if __name__ == "__main__":
+    scraper = ScraperMain()
+    asyncio.run(scraper.run())
