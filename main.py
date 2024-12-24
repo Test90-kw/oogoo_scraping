@@ -7,11 +7,6 @@ from oogoo_used import OogooUsed
 from oogoo_certified import OogooCertified
 from SavingOnDrive import SavingOnDrive
 
-# Ensure the environment variable is set
-# credentials_json = os.getenv('OGO_GCLOUD_KEY_JSON')
-# if not credentials_json:
-#     raise EnvironmentError("OGO_GCLOUD_KEY_JSON not found in environment variables.")
-
 class ScraperMain:
     def __init__(self):
         self.yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -65,7 +60,7 @@ class ScraperMain:
         return files
 
     def create_excel(self, name, data):
-        file_name = f"{name}.xlsx"
+        file_name = f"/tmp/{name}.xlsx"  # Save to /tmp directory in GitHub Actions
         df = pd.DataFrame(data)
         with pd.ExcelWriter(file_name, engine='openpyxl') as writer:
             df.to_excel(writer, sheet_name=name.lower(), index=False)
@@ -74,13 +69,12 @@ class ScraperMain:
     
     def upload_to_drive(self, files):
         print("Uploading to Google Drive...")
-    
-        # Debug: Log the environment variable content length
-        credentials_json = os.environ.get('OOGOO_GCLOUD_KEY_JSON')
+
+        credentials_json = os.environ.get('OGO_GCLOUD_KEY_JSON')
         if not credentials_json:
-            raise EnvironmentError("OOGOO_GCLOUD_KEY_JSON environment variable not found.")
+            raise EnvironmentError("OGO_GCLOUD_KEY_JSON environment variable not found.")
     
-        print(f"Loaded OOGOO_GCLOUD_KEY_JSON: {len(credentials_json)} characters")
+        print(f"Loaded OGO_GCLOUD_KEY_JSON: {len(credentials_json)} characters")
         credentials_dict = json.loads(credentials_json)
 
         print(f"Excel files: {files}")
@@ -90,7 +84,7 @@ class ScraperMain:
         drive_saver.authenticate()
 
         # Folder name based on the date (yesterday)
-        folder_name = self.yesterday  # Ensure folder name is set
+        folder_name = self.yesterday
         parent_folder_id = '1ayaYWPFnswsOP2nRiDtiwGuy_r43Dr3F'  # Parent folder ID for uploads
     
         # Create a folder for the day (yesterday)
@@ -103,6 +97,7 @@ class ScraperMain:
             print(f"Uploaded {file_name} to Google Drive.")
 
         print("Files uploaded successfully.")
+    
     async def run(self):
         await asyncio.gather(self.scrape_used(), self.scrape_certified())
         files = self.save_to_excel()
