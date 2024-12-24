@@ -3,14 +3,14 @@ import os
 import json
 import pandas as pd
 from datetime import datetime, timedelta
-from oogoo_used import OogooUsed
+from OGO_used import OogooUsed
 from oogoo_certified import OogooCertified
 from SavingOnDrive import SavingOnDrive
 
 # Ensure the environment variable is set
-credentials_json = os.getenv('OOGOO_GCLOUD_KEY_JSON')
-if not credentials_json:
-    raise EnvironmentError("OOGOO_GCLOUD_KEY_JSON not found in environment variables.")
+# credentials_json = os.getenv('OGO_GCLOUD_KEY_JSON')
+# if not credentials_json:
+#     raise EnvironmentError("OGO_GCLOUD_KEY_JSON not found in environment variables.")
 
 class ScraperMain:
     def __init__(self):
@@ -76,12 +76,12 @@ class ScraperMain:
         print("Uploading to Google Drive...")
 
         # Debugging step: check the length of the credentials for confirmation
-        print(f"Loaded OOGOO_GCLOUD_KEY_JSON: {len(credentials_json)} characters")
+        # print(f"Loaded OGO_GCLOUD_KEY_JSON: {len(credentials_json)} characters")
 
         try:
             credentials_dict = json.loads(credentials_json)
         except json.JSONDecodeError as e:
-            raise ValueError("Failed to parse the OOGOO_GCLOUD_KEY_JSON environment variable.") from e
+            raise ValueError("Failed to parse the OGO_GCLOUD_KEY_JSON environment variable.") from e
 
         print(f"Excel files: {files}")
 
