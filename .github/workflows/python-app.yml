@@ -33,6 +33,11 @@ jobs:
           python -m pip install playwright
           python -m playwright install
 
+      - name: Set Google Cloud credentials
+        run: echo "${{ secrets.OOGOO_GCLOUD_KEY_JSON }}" > gcloud-key.json
+        env:
+          OOGOO_GCLOUD_KEY_JSON: ${{ secrets.OOGOO_GCLOUD_KEY_JSON }}
+
       - name: Verify Files and Secrets
         run: |
           ls -la
