@@ -58,7 +58,7 @@ jobs:
       # export OOGOO_GCLOUD_KEY_JSON=${{ secrets.OOGOO_GCLOUD_KEY_JSON }}
       - name: Run the scraper
         env:
-          OOGOO_GCLOUD_KEY_JSON: ${{ secrets.OOGOO_GCLOUD_KEY_JSON }}
+          OGO_GCLOUD_KEY_JSON: ${{ secrets.OGO_GCLOUD_KEY_JSON }}
         run: |
           python main.py
 
