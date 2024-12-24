@@ -73,14 +73,14 @@ class ScraperMain:
     
     def upload_to_drive(self, files):
         print("Uploading to Google Drive...")
-    
-        # Debug: Log the environment variable content length
-        credentials_json = os.environ.get('OOGOO_GCLOUD_KEY_JSON')
-        if not credentials_json:
-            raise EnvironmentError("OOGOO_GCLOUD_KEY_JSON environment variable not found.")
-    
+
+        # Debugging step: check the length of the credentials for confirmation
         print(f"Loaded OOGOO_GCLOUD_KEY_JSON: {len(credentials_json)} characters")
-        credentials_dict = json.loads(credentials_json)
+
+        try:
+            credentials_dict = json.loads(credentials_json)
+        except json.JSONDecodeError as e:
+            raise ValueError("Failed to parse the OOGOO_GCLOUD_KEY_JSON environment variable.") from e
 
         print(f"Excel files: {files}")
 
@@ -91,7 +91,7 @@ class ScraperMain:
         # Folder name based on the date (yesterday)
         folder_name = self.yesterday  # Ensure folder name is set
         parent_folder_id = '1ayaYWPFnswsOP2nRiDtiwGuy_r43Dr3F'  # Parent folder ID for uploads
-    
+
         # Create a folder for the day (yesterday)
         folder_id = drive_saver.create_folder(folder_name, parent_folder_id)
         print(f"Created folder '{folder_name}' with ID: {folder_id}")
@@ -112,8 +112,3 @@ class ScraperMain:
             print("Data uploaded.")
         else:
             print("No data to upload.")
-
-
-if __name__ == "__main__":
-    scraper = ScraperMain()
-    asyncio.run(scraper.run())
