@@ -12,7 +12,7 @@ class ScraperMain:
         self.yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
         self.data_used = []
         self.data_certified = []
-        self.semaphore = asyncio.Semaphore(5)  # Limit concurrency
+        self.semaphore = asyncio.Semaphore(5)
 
     async def scrape_used(self):
         print("Scraping used cars...")
@@ -102,8 +102,8 @@ class ScraperMain:
         await asyncio.gather(self.scrape_used(), self.scrape_certified())
         files = self.save_to_excel()
         print(f"Files to upload: {files}")
-        if files:
-            self.upload_to_drive(files)
-            print("Data uploaded.")
-        else:
-            print("No data to upload.")
+        # if files:
+        #     self.upload_to_drive(files)
+        #     print("Data uploaded.")
+        # else:
+        #     print("No data to upload.")
