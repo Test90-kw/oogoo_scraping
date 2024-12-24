@@ -61,6 +61,3 @@ jobs:
           OGO_GCLOUD_KEY_JSON: ${{ secrets.OGO_GCLOUD_KEY_JSON }}
         run: |
           python main.py
-
-      - name: Cleanup
-        run: echo "Cleanup complete"
