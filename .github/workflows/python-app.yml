@@ -54,7 +54,9 @@ jobs:
         env:
           OOGOO_GCLOUD_KEY_JSON: ${{ secrets.OOGOO_GCLOUD_KEY_JSON }}
         run: |
+          export OOGOO_GCLOUD_KEY_JSON=${{ secrets.OOGOO_GCLOUD_KEY_JSON }}
           python main.py
+
 
       - name: Cleanup
         run: echo "Cleanup complete"
