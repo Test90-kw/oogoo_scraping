@@ -107,7 +107,7 @@ class OogooShowroomScraping:
             try:
                 full_url = f"https://oogoocar.com{link}" if not link.startswith('http') else link
                 await page.goto(full_url, wait_until="domcontentloaded")
-                await page.wait_for_selector('.showroom-details', timeout=30000)
+                await page.wait_for_selector('.showroom-details', timeout=300000)
                 
                 details = {
                     'time list': await self.scrape_time_list(page),
