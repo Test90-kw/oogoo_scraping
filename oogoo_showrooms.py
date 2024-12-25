@@ -27,7 +27,7 @@ class OogooShowroomScraping:
         self.retries = retries
         self.cars = []
 
-   async def scrape_link(self, card):
+    async def scrape_link(self, card):
         try:
             link_element = await card.query_selector('a')
             if link_element:
