@@ -27,12 +27,12 @@ class OogooShowroomScraping:
         self.retries = retries
         self.cars = []
 
-    async def scrape_link(self, card):
-        """Extract car link from card"""
+   async def scrape_link(self, card):
         try:
             link_element = await card.query_selector('a')
             if link_element:
-                return await link_element.get_attribute('href')
+                href = await link_element.get_attribute('href')
+                return f"https://oogoocar.com{href}" if href else None
             return None
         except Exception as e:
             logging.error(f"Error scraping link: {e}")
