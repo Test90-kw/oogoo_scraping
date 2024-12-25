@@ -59,45 +59,106 @@ class OogooShowroomScraping:
         except Exception as e:
             logging.error(f"Error scraping title: {e}")
             return None
+    
+    async def scrape_time_list(self, page):
+        try:
+            time_list_element = await page.query_selector('.time-list')
+            if not time_list_element:
+                return "No times found"
+
+            times = await time_list_element.query_selector_all('ul li')
+            time_texts = [await time.inner_text() for time in times]
+            return ", ".join(time_texts)
+        except Exception as e:
+            logging.error(f"Error scraping time list: {e}")
+            return "Error"
+
+    async def scrape_location(self, page):
+        try:
+            location_element = await page.query_selector('.inner-map iframe')
+            if location_element:
+                src = await location_element.get_attribute('src')
+                return src
+            return "No location found"
+        except Exception as e:
+            logging.error(f"Error scraping location: {e}")
+            return "Error"
+
+    async def scrape_phone_number(self, page):
+        try:
+            phone_element = await page.query_selector('.detail-contact-info.max-md\\:hidden a.call')
+            if phone_element:
+                properties = await phone_element.get_attribute('mpt-properties')
+                data = json.loads(properties)
+                return data.get('mobile')
+            return "No phone number found"
+        except Exception as e:
+            logging.error(f"Error scraping phone number: {e}")
+            return "Error"
 
     async def scrape_more_details(self, link):
-        """Extract additional details from car page"""
         if not link:
             return {}
 
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
-
+            
             try:
                 full_url = f"https://oogoocar.com{link}" if not link.startswith('http') else link
                 await page.goto(full_url, wait_until="domcontentloaded")
                 await page.wait_for_selector('.showroom-details', timeout=30000)
-
-                details = {}
                 
-                # Price
-                price_element = await page.query_selector('.price-tag')
-                if price_element:
-                    details['price'] = await price_element.inner_text()
-
-                # Specifications
-                specs = await page.query_selector_all('.specifications-list li')
-                for spec in specs:
-                    label_elem = await spec.query_selector('.label')
-                    value_elem = await spec.query_selector('.value')
-                    if label_elem and value_elem:
-                        label = await label_elem.inner_text()
-                        value = await value_elem.inner_text()
-                        details[label.lower().replace(' ', '_')] = value
-
+                details = {
+                    'time list': await self.scrape_time_list(page),
+                    'location': await self.scrape_location(page),
+                    'phone_number': await self.scrape_phone_number(page),
+                }
                 return details
-
             except Exception as e:
                 logging.error(f"Error scraping details from {link}: {e}")
                 return {}
             finally:
                 await browser.close()
+
+    # async def scrape_more_details(self, link):
+    #     """Extract additional details from car page"""
+    #     if not link:
+    #         return {}
+
+    #     async with async_playwright() as p:
+    #         browser = await p.chromium.launch(headless=True)
+    #         page = await browser.new_page()
+
+    #         try:
+    #             full_url = f"https://oogoocar.com{link}" if not link.startswith('http') else link
+    #             await page.goto(full_url, wait_until="domcontentloaded")
+    #             await page.wait_for_selector('.showroom-details', timeout=30000)
+
+    #             details = {}
+                
+    #             # Price
+    #             price_element = await page.query_selector('.price-tag')
+    #             if price_element:
+    #                 details['price'] = await price_element.inner_text()
+
+    #             # Specifications
+    #             specs = await page.query_selector_all('.specifications-list li')
+    #             for spec in specs:
+    #                 label_elem = await spec.query_selector('.label')
+    #                 value_elem = await spec.query_selector('.value')
+    #                 if label_elem and value_elem:
+    #                     label = await label_elem.inner_text()
+    #                     value = await value_elem.inner_text()
+    #                     details[label.lower().replace(' ', '_')] = value
+
+    #             return details
+
+    #         except Exception as e:
+    #             logging.error(f"Error scraping details from {link}: {e}")
+    #             return {}
+    #         finally:
+    #             await browser.close()
 
     async def get_car_details(self):
         async with async_playwright() as p:
