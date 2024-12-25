@@ -84,6 +84,15 @@ class OogooShowroomScraping:
             logging.error(f"Error scraping location: {e}")
             return "Error"
 
+    async def scrape_car_links_from_showroom(self, page):
+        try:
+            car_cards = await page.query_selector_all('.list-content.mt-0.grid-items-3 .list-item-car a')
+            car_links = [await car.get_attribute('href') for car in car_cards]
+            return [f"https://oogoocar.com{link}" for link in car_links if link]
+        except Exception as e:
+            logging.error(f"Error extracting car links: {e}")
+            return []
+    
     async def scrape_phone_number(self, page):
         try:
             phone_element = await page.query_selector('.detail-contact-info.max-md\\:hidden a.call')
@@ -113,6 +122,7 @@ class OogooShowroomScraping:
                     'time list': await self.scrape_time_list(page),
                     'location': await self.scrape_location(page),
                     'phone_number': await self.scrape_phone_number(page),
+                    'car_links': await self.scrape_car_links_from_showroom(page)
                 }
                 return details
             except Exception as e:
