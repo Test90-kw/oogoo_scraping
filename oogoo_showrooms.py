@@ -34,8 +34,8 @@ class OogooNewCarScraper:
                     'distance': await self.extract_distance(soup),
                     'case': await self.extract_case(soup),
                     'submitter': await self.extract_submitter(soup),
-                    'relative_date': await self.extract_title(soup),
-                    'specifications': await self.extract_relative_date(soup),
+                    'relative_date': await self.extract_relative_date(soup),
+                    'specifications': await self.extract_specifications(soup),
                     'tabbed_data': await self.extract_tabbed_data(page)
                 }
 
