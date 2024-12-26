@@ -313,6 +313,10 @@ class DetailsScraping:
                 car_info = {
                     'link': car['link'],
                     'title': car['details'].get('title'),
+                    'distance': car['details'].get('distance'),
+                    'case': car['details'].get('case'),
+                    'submitter': car['details'].get('submitter'),
+                    'relative_date': car['details'].get('relative_date'),
                     'specifications': car['details'].get('specifications'),
                     'tabbed_data': car['details'].get('tabbed_data')
                 }
