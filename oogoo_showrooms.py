@@ -99,15 +99,52 @@ class DetailsScraping:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
             try:
-                await page.goto(showroom_url, wait_until="domcontentloaded")
-                car_cards = await page.query_selector_all('.list-content.mt-0.grid-items-3 .list-item-car a')
-                car_links = [await car.get_attribute('href') for car in car_cards]
-                return [f"https://oogoocar.com{link}" for link in car_links if link]
+                print(f"\nAccessing showroom URL: {showroom_url}")
+                await page.goto(showroom_url, wait_until="networkidle")
+            
+                # Wait for content to load
+                await page.wait_for_selector('.list-content', timeout=30000)
+            
+                # Try different possible selectors
+                selectors = [
+                    '.list-content .list-item-car a',
+                    '.list-content.mt-0 .list-item-car a',
+                    '.list-content.mt-0.grid-items-3 .list-item-car a',
+                    '.grid-items-3 .list-item-car a'
+                ]
+            
+                car_links = []
+                for selector in selectors:
+                    print(f"Trying selector: {selector}")
+                    car_cards = await page.query_selector_all(selector)
+                    if car_cards:
+                        links = [await car.get_attribute('href') for car in car_cards]
+                        car_links.extend([f"https://oogoocar.com{link}" for link in links if link])
+                        print(f"Found {len(car_links)} links with selector {selector}")
+                        break
+            
+                # If no links found, try getting the content and debug
+                if not car_links:
+                    # Get page content for debugging
+                    content = await page.content()
+                    print("Debug: Page content length:", len(content))
+                    print("Debug: First 500 characters of content:", content[:500])
+                
+                    # Try to find any anchors in the list content
+                    list_content = await page.query_selector('.list-content')
+                    if list_content:
+                        print("Debug: Found .list-content element")
+                        anchors = await list_content.query_selector_all('a')
+                        print(f"Debug: Found {len(anchors)} anchor elements in .list-content")
+                
+                return car_links
+
             except Exception as e:
                 logging.error(f"Error getting cars from showroom: {e}")
+                print(f"Debug: Exception occurred: {str(e)}")
                 return []
             finally:
-                await browser.close()
+                await browser.close()   
 
     async def scrape_more_details(self, url):
         async with async_playwright() as p:
