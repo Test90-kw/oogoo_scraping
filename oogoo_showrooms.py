@@ -31,7 +31,11 @@ class OogooNewCarScraper:
 
                 result = {
                     'title': await self.extract_title(soup),
-                    'specifications': await self.extract_specifications(soup),
+                    'distance': await self.extract_distance(soup),
+                    'case': await self.extract_case(soup),
+                    'submitter': await self.extract_submitter(soup),
+                    'relative_date': await self.extract_title(soup),
+                    'specifications': await self.extract_relative_date(soup),
                     'tabbed_data': await self.extract_tabbed_data(page)
                 }
 
@@ -45,6 +49,58 @@ class OogooNewCarScraper:
             return title_div.find('h1').text.strip()
         return None
 
+    # async def extract_distance_and_case(self, soup):
+    #     """Extract the distance and case (e.g., new, used)."""
+    #     info_div = soup.find('div', class_='detail-title-left')
+    #     if info_div:
+    #         items = info_div.find_all('li')
+    #         if len(items) >= 2:
+    #             distance = items[0].text.strip()
+    #             case = items[1].text.strip()
+    #             return distance, case
+    #     return None, None
+
+    # async def extract_submitter_and_date(self, soup):
+    #     """Extract the submitter and relative date."""
+    #     submitter_div = soup.find('div', class_='car-ad-posted')
+    #     if submitter_div:
+    #         submitter = submitter_div.find('label').text.strip()
+    #         relative_date = submitter_div.find('p').text.strip()
+    #         return submitter, relative_date
+    #     return None, None
+
+    async def extract_distance(self, soup):
+        """Extract the distance."""
+        info_div = soup.find('div', class_='detail-title-left')
+        if info_div:
+            items = info_div.find_all('li')
+            if len(items) >= 1:
+                return items[0].text.strip()
+        return None
+
+    async def extract_case(self, soup):
+        """Extract the case (e.g., new, used)."""
+        info_div = soup.find('div', class_='detail-title-left')
+        if info_div:
+            items = info_div.find_all('li')
+            if len(items) >= 2:
+                return items[1].text.strip()
+        return None
+
+    async def extract_submitter(self, soup):
+        """Extract the submitter."""
+        submitter_div = soup.find('div', class_='car-ad-posted')
+        if submitter_div:
+            return submitter_div.find('label').text.strip()
+        return None
+
+    async def extract_relative_date(self, soup):
+        """Extract the relative date."""
+        submitter_div = soup.find('div', class_='car-ad-posted')
+        if submitter_div:
+            return submitter_div.find('p').text.strip()
+        return None    
+    
     async def extract_specifications(self, soup):
         specifications = {}
         spec_div = soup.find('div', class_='specification')
