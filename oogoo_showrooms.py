@@ -25,11 +25,12 @@ class OogooShowroomScraping:
     def __init__(self, url, retries=3):
         self.url = url
         self.retries = retries
-        self.cars = []
+        self.showrooms = []
 
     async def scrape_link(self, card):
+        """Extract showroom link from card"""
         try:
-            link_element = await card.query_selector('a')
+            link_element = await card.query_selector('.list-item-car')
             if link_element:
                 href = await link_element.get_attribute('href')
                 return f"https://oogoocar.com{href}" if href else None
@@ -39,73 +40,64 @@ class OogooShowroomScraping:
             return None
 
     async def scrape_brand(self, card):
-        """Extract car brand from card"""
+        """Extract showroom name"""
         try:
-            brand_element = await card.query_selector('.car-title h3')
-            if brand_element:
-                return await brand_element.inner_text()
+            name_element = await card.query_selector('.info-showroom h3')
+            if name_element:
+                return await name_element.inner_text()
             return None
         except Exception as e:
-            logging.error(f"Error scraping brand: {e}")
+            logging.error(f"Error scraping showroom name: {e}")
             return None
 
     async def scrape_title(self, card):
-        """Extract car title from card"""
+        """Extract showroom description"""
         try:
-            title_element = await card.query_selector('.car-title p')
-            if title_element:
-                return await title_element.inner_text()
+            desc_element = await card.query_selector('.info-showroom p')
+            if desc_element:
+                return await desc_element.inner_text()
             return None
         except Exception as e:
-            logging.error(f"Error scraping title: {e}")
+            logging.error(f"Error scraping description: {e}")
             return None
-    
-    async def scrape_time_list(self, page):
-        try:
-            time_list_element = await page.query_selector('.time-list')
-            if not time_list_element:
-                return "No times found"
 
-            times = await time_list_element.query_selector_all('ul li')
-            time_texts = [await time.inner_text() for time in times]
-            return ", ".join(time_texts)
+    async def scrape_working_hours(self, page):
+        """Extract working hours"""
+        try:
+            hours_list = await page.query_selector('.working-hours ul')
+            if hours_list:
+                hours = await hours_list.query_selector_all('li')
+                return "\n".join([await hour.inner_text() for hour in hours])
+            return "No working hours found"
         except Exception as e:
-            logging.error(f"Error scraping time list: {e}")
+            logging.error(f"Error scraping working hours: {e}")
             return "Error"
 
     async def scrape_location(self, page):
+        """Extract location"""
         try:
-            location_element = await page.query_selector('.inner-map iframe')
+            location_element = await page.query_selector('.showroom-location')
             if location_element:
-                src = await location_element.get_attribute('src')
-                return src
+                return await location_element.inner_text()
             return "No location found"
         except Exception as e:
             logging.error(f"Error scraping location: {e}")
             return "Error"
 
-    async def scrape_car_links_from_showroom(self, page):
+    async def scrape_contact_info(self, page):
+        """Extract contact information"""
         try:
-            car_cards = await page.query_selector_all('.list-content.mt-0.grid-items-3 .list-item-car a')
-            car_links = [await car.get_attribute('href') for car in car_cards]
-            return [f"https://oogoocar.com{link}" for link in car_links if link]
+            contact_element = await page.query_selector('.contact-info')
+            if contact_element:
+                phone = await contact_element.query_selector('.phone-number')
+                return await phone.inner_text() if phone else "No phone found"
+            return "No contact info found"
         except Exception as e:
-            logging.error(f"Error extracting car links: {e}")
-            return []
-    
-    async def scrape_phone_number(self, page):
-        try:
-            phone_element = await page.query_selector('.detail-contact-info.max-md\\:hidden a.call')
-            if phone_element:
-                properties = await phone_element.get_attribute('mpt-properties')
-                data = json.loads(properties)
-                return data.get('mobile')
-            return "No phone number found"
-        except Exception as e:
-            logging.error(f"Error scraping phone number: {e}")
+            logging.error(f"Error scraping contact info: {e}")
             return "Error"
 
     async def scrape_more_details(self, link):
+        """Extract additional showroom details"""
         if not link:
             return {}
 
@@ -114,15 +106,13 @@ class OogooShowroomScraping:
             page = await browser.new_page()
             
             try:
-                full_url = f"https://oogoocar.com{link}" if not link.startswith('http') else link
-                await page.goto(full_url, wait_until="domcontentloaded")
-                await page.wait_for_selector('.showroom-details', timeout=300000)
+                await page.goto(link, wait_until="domcontentloaded")
+                await page.wait_for_selector('.showroom-details', timeout=30000)
                 
                 details = {
-                    'time list': await self.scrape_time_list(page),
+                    'working_hours': await self.scrape_working_hours(page),
                     'location': await self.scrape_location(page),
-                    'phone_number': await self.scrape_phone_number(page),
-                    'car_links': await self.scrape_car_links_from_showroom(page)
+                    'contact_info': await self.scrape_contact_info(page),
                 }
                 return details
             except Exception as e:
@@ -131,100 +121,59 @@ class OogooShowroomScraping:
             finally:
                 await browser.close()
 
-    # async def scrape_more_details(self, link):
-    #     """Extract additional details from car page"""
-    #     if not link:
-    #         return {}
-
-    #     async with async_playwright() as p:
-    #         browser = await p.chromium.launch(headless=True)
-    #         page = await browser.new_page()
-
-    #         try:
-    #             full_url = f"https://oogoocar.com{link}" if not link.startswith('http') else link
-    #             await page.goto(full_url, wait_until="domcontentloaded")
-    #             await page.wait_for_selector('.showroom-details', timeout=30000)
-
-    #             details = {}
-                
-    #             # Price
-    #             price_element = await page.query_selector('.price-tag')
-    #             if price_element:
-    #                 details['price'] = await price_element.inner_text()
-
-    #             # Specifications
-    #             specs = await page.query_selector_all('.specifications-list li')
-    #             for spec in specs:
-    #                 label_elem = await spec.query_selector('.label')
-    #                 value_elem = await spec.query_selector('.value')
-    #                 if label_elem and value_elem:
-    #                     label = await label_elem.inner_text()
-    #                     value = await value_elem.inner_text()
-    #                     details[label.lower().replace(' ', '_')] = value
-
-    #             return details
-
-    #         except Exception as e:
-    #             logging.error(f"Error scraping details from {link}: {e}")
-    #             return {}
-    #         finally:
-    #             await browser.close()
-
-    async def get_car_details(self):
+    async def get_showroom_details(self):
+        """Main method to scrape showroom details"""
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
 
-            page.set_default_navigation_timeout(3000000)
-            page.set_default_timeout(3000000)
-
             for attempt in range(self.retries):
                 try:
                     await page.goto(self.url, wait_until="domcontentloaded")
-                    await page.wait_for_selector('.list-item-car.item-logo', timeout=3000000)
+                    await page.wait_for_selector('.list-item-car', timeout=30000)
 
-                    car_cards = await page.query_selector_all('.list-item-car.item-logo')
-                    logging.info(f"Found {len(car_cards)} car cards")
-                    
-                    for card in car_cards:
-                        link = await self.scrape_link(card)
-                        brand = await self.scrape_brand(card)
-                        title = await self.scrape_title(card)
+                    # Get all showroom links
+                    showroom_links = await page.query_selector_all('.list-item-car a')
+                    links = []
+                    for link in showroom_links:
+                        href = await link.get_attribute('href')
+                        if href:
+                            full_link = f"https://oogoocar.com{href}"
+                            links.append(full_link)
 
-                        details = await self.scrape_more_details(link)
+                    logging.info(f"Found {len(links)} showroom links")
 
-                        car_data = {
-                            'brand': brand,
-                            'title': title,
-                            'link': link,
-                            **details
-                        }
-                        self.cars.append(car_data)
-                        logging.info(f"Scraped data for {brand} {title}")
+                    # Scrape details for each showroom
+                    for link in links:
+                        try:
+                            details = await self.scrape_more_details(link)
+                            showroom_data = {
+                                'link': link,
+                                **details
+                            }
+                            self.showrooms.append(showroom_data)
+                            logging.info(f"Scraped data for showroom at {link}")
+                        except Exception as e:
+                            logging.error(f"Error scraping showroom at {link}: {e}")
 
                     break
-
                 except Exception as e:
-                    logging.error(f"Attempt {attempt + 1} failed for {self.url}: {e}")
+                    logging.error(f"Attempt {attempt + 1} failed: {e}")
                     if attempt + 1 == self.retries:
-                        logging.error(f"Max retries reached for {self.url}. Returning partial results.")
+                        logging.error("Max retries reached")
                         break
-                finally:
-                    await page.close()
-                    if attempt + 1 < self.retries:
-                        page = await browser.new_page()
 
             await browser.close()
-            return self.cars
+            return self.showrooms
 
     def save_to_excel(self):
         """Save scraped data to Excel file"""
-        if not self.cars:
+        if not self.showrooms:
             logging.warning("No data to save to Excel")
             return None
 
         # Create DataFrame
-        df = pd.DataFrame(self.cars)
+        df = pd.DataFrame(self.showrooms)
         
         # Generate filename with timestamp
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -239,48 +188,41 @@ class OogooShowroomScraping:
             logging.error(f"Error saving to Excel: {e}")
             return None
 
-    def upload_to_drive(self, file_path):
-        """Upload the Excel file to Google Drive"""
-        try:
-            credentials_json = os.environ.get('SHOWROOMS_GCLOUD_KEY_JSON')
-            if not credentials_json:
-                raise EnvironmentError("SHOWROOMS_GCLOUD_KEY_JSON environment variable not found")
-            
-            credentials_dict = json.loads(credentials_json)
-
-            drive_saver = SavingOnDrive(credentials_dict)
-            drive_saver.authenticate()
-
-            parent_folder_id = '1hLSbEqCR9A0DJiZrhivYeJyqVhZnpVHg'
-            today_folder = drive_saver.create_folder(datetime.now().strftime('%Y-%m-%d'), parent_folder_id)
-            
-            file_id = drive_saver.upload_file(file_path, today_folder)
-            logging.info(f"File uploaded to Google Drive with ID: {file_id}")
-            
-            # Cleanup
-            try:
-                os.remove(file_path)
-                logging.info(f"Cleaned up local file: {file_path}")
-            except Exception as e:
-                logging.error(f"Error cleaning up file: {str(e)}")
-
-        except Exception as e:
-            logging.error(f"Error uploading to Google Drive: {str(e)}")
-
-
 async def main():
     try:
-        # Your scraping code here
         scraper = OogooShowroomScraping("https://oogoocar.com/ar/explore/showrooms")
-        data = await scraper.get_car_details()
+        data = await scraper.get_showroom_details()
         
-        # Save to Excel
         if data:
             excel_file = scraper.save_to_excel()
-            
             if excel_file:
-                # Upload to Google Drive
-                scraper.upload_to_drive(excel_file)
+                # Get credentials from environment variable
+                credentials_json = os.environ.get('SHOWROOMS_GCLOUD_KEY_JSON')
+                if not credentials_json:
+                    raise EnvironmentError("SHOWROOMS_GCLOUD_KEY_JSON environment variable not found")
+                
+                credentials_dict = json.loads(credentials_json)
+                
+                # Initialize Google Drive uploader
+                drive_saver = SavingOnDrive(credentials_dict)
+                drive_saver.authenticate()
+                
+                # Upload file
+                parent_folder_id = '1hLSbEqCR9A0DJiZrhivYeJyqVhZnpVHg'
+                today_folder = drive_saver.create_folder(
+                    datetime.now().strftime('%Y-%m-%d'),
+                    parent_folder_id
+                )
+                
+                file_id = drive_saver.upload_file(excel_file, today_folder)
+                logging.info(f"File uploaded to Google Drive with ID: {file_id}")
+                
+                # Cleanup
+                try:
+                    os.remove(excel_file)
+                    logging.info(f"Cleaned up local file: {excel_file}")
+                except Exception as e:
+                    logging.error(f"Error cleaning up file: {str(e)}")
         else:
             logging.warning("No data was scraped")
             
