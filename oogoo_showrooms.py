@@ -38,7 +38,7 @@ class OogooNewCarScraper:
                     'submitter': await self.extract_submitter(soup),
                     'relative_date': await self.extract_relative_date(soup),
                     'specifications': await self.extract_specifications(soup),
-                    'tabbed_data': await self.extract_tabbed_data(soup),
+                    'tabbed_data': await self.extract_tabbed_data(page),
                 }
 
                 return json.dumps(result, ensure_ascii=False, indent=2)
@@ -99,7 +99,7 @@ class OogooNewCarScraper:
                         specifications[key] = value
         return specifications
 
-    async def extract_tabbed_data(self, soup):
+    async def extract_tabbed_data(self, page):
         tab_data = {}
         try:
             # Wait for the tabbing UI to load
