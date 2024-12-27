@@ -24,7 +24,7 @@ class OogooNewCarScraper:
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             context = await browser.new_context()
-            page = await browser.new_page()
+            page = await context.new_page()
             
             try:
                 await page.goto(self.url)
@@ -99,7 +99,7 @@ class OogooNewCarScraper:
                         specifications[key] = value
         return specifications
 
-    async def extract_tabbed_data(self, page):
+    async def extract_tabbed_data(self, soup):
         tab_data = {}
         try:
             # Wait for the tabbing UI to load
