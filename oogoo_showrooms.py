@@ -165,7 +165,7 @@ class OogooNewCarScraper:
         except Exception as e:
             logging.error(f"Error in extract_tabbed_data: {str(e)}")
         
-        return tab_data
+        return json.dumps(tab_data, ensure_ascii=False, indent=2)
 
     # async def extract_tabbed_data(self, soup):
     #     tab_data = {}
