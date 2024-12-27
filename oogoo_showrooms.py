@@ -18,6 +18,7 @@ nest_asyncio.apply()
 class OogooNewCarScraper:
     def __init__(self, url):
         self.url = url
+        # self.tab_data = {}
 
     async def scrape_data(self):
         async with async_playwright() as p:
@@ -98,7 +99,7 @@ class OogooNewCarScraper:
         return specifications
 
     async def extract_tabbed_data(self, page):
-        tabbed_data = {}
+        tab_data = {}
         try:
             # Wait for the tabbing UI to load
             await page.wait_for_selector('.tabbing-ui')
