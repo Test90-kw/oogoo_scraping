@@ -165,7 +165,14 @@ class OogooNewCarScraper:
         except Exception as e:
             logging.error(f"Error in extract_tabbed_data: {str(e)}")
         
-        return json.dumps(tab_data, ensure_ascii=False, indent=2)
+        # Deserialize and return tabbed_data properly formatted
+        try:
+            # Convert the stringified JSON to an actual dictionary
+            tab_data_dict = json.loads(tab_data)
+            return json.dumps(tab_data_dict, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logging.error(f"Error parsing tabbed data JSON: {e}")
+            return {}
 
     # async def extract_tabbed_data(self, soup):
     #     tab_data = {}
