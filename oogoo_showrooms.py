@@ -137,11 +137,13 @@ class OogooNewCarScraper:
                 
                     # Wait for the content to load completely
                     await page.wait_for_selector('.tabbing-body .tabbing-content')  # Adjust this selector based on the content
-                    await asyncio.sleep(3)  # Wait a bit longer for the first tab's content to load
+                    await asyncio.sleep(5)  # Wait a bit longer for the first tab's content to load
                 
                     # Extract the data from the active tabbing body
                     active_tab_content = await page.query_selector('.tabbing-body .tabbing-content')
-
+                    if not active_tab_content:
+                        logging.warning(f"No content found for tab: {tab_text}")
+                        continue
                     # Check if the content is a list of <li> elements
                     list_items = await active_tab_content.query_selector_all('li')
                     if not list_items:
