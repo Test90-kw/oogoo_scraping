@@ -18,7 +18,7 @@ nest_asyncio.apply()
 class OogooNewCarScraper:
     def __init__(self, url):
         self.url = url
-        # self.tab_data = {}
+        self.tab_data = {}
 
     async def scrape_data(self):
         async with async_playwright() as p:
