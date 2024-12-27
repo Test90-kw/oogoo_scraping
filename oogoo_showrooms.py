@@ -167,11 +167,13 @@ class OogooNewCarScraper:
         
         # Deserialize and return tabbed_data properly formatted
         try:
-            # Convert the stringified JSON to an actual dictionary
-            tab_data_dict = json.loads(tab_data)
-            return json.dumps(tab_data_dict, ensure_ascii=False, indent=2)
+            # Check if it's a dictionary (don't run json.loads on it if it's already a dict)
+            if isinstance(tab_data, dict):
+                return json.dumps(tab_data, ensure_ascii=False, indent=2)
+            else:
+                return tab_data
         except Exception as e:
-            logging.error(f"Error parsing tabbed data JSON: {e}")
+            logging.error(f"Error parsing tabbed data JSON: {str(e)}")
             return {}
 
     # async def extract_tabbed_data(self, soup):
