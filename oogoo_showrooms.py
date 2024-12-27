@@ -106,10 +106,15 @@ class OogooNewCarScraper:
         
             # Find all tabs
             tabs = await page.query_selector_all('.tab-list .tab button')
-
+        
+            if not tabs:
+                logging.warning("No tabs found on the page.")
+                return tab_data
             # Iterate over each tab
             for index, tab in enumerate(tabs):
                 try:
+                    tab_text = await tab.text_content()
+                    logging.info(f"Extracting data from tab: {tab_text}")
                     # Wait for the tab to become visible
                     await tab.wait_for_element_state('visible')
                 
@@ -139,7 +144,9 @@ class OogooNewCarScraper:
 
                     # Check if the content is a list of <li> elements
                     list_items = await active_tab_content.query_selector_all('li')
-
+                    if not list_items:
+                        logging.warning(f"Tab {tab_text} has no list items.")
+                        continue
                     # Initialize a dictionary to store each tab's specific data
                     tab_dict = {}
                     counter = 1
@@ -167,7 +174,7 @@ class OogooNewCarScraper:
                     self.tab_data[tab_data_key] = tab_dict
 
                 except Exception as e:
-                    print(f"Error clicking tab {index + 1} ({await tab.text_content()}): {e}")
+                    logging.error(f"Error extracting data from tab {index + 1}: {e}")
         except Exception as e:
             logging.error(f"Error extracting tabbed data: {e}")
         return tab_data
