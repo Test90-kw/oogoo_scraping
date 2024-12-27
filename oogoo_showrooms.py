@@ -23,6 +23,7 @@ class OogooNewCarScraper:
     async def scrape_data(self):
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
+            context = await browser.new_context()
             page = await browser.new_page()
             
             try:
