@@ -49,26 +49,6 @@ class OogooNewCarScraper:
             return title_div.find('h1').text.strip()
         return None
 
-    # async def extract_distance_and_case(self, soup):
-    #     """Extract the distance and case (e.g., new, used)."""
-    #     info_div = soup.find('div', class_='detail-title-left')
-    #     if info_div:
-    #         items = info_div.find_all('li')
-    #         if len(items) >= 2:
-    #             distance = items[0].text.strip()
-    #             case = items[1].text.strip()
-    #             return distance, case
-    #     return None, None
-
-    # async def extract_submitter_and_date(self, soup):
-    #     """Extract the submitter and relative date."""
-    #     submitter_div = soup.find('div', class_='car-ad-posted')
-    #     if submitter_div:
-    #         submitter = submitter_div.find('label').text.strip()
-    #         relative_date = submitter_div.find('p').text.strip()
-    #         return submitter, relative_date
-    #     return None, None
-
     async def extract_distance(self, soup):
         """Extract the distance."""
         info_div = soup.find('div', class_='detail-title-left')
@@ -120,24 +100,73 @@ class OogooNewCarScraper:
     async def extract_tabbed_data(self, page):
         tabbed_data = {}
         try:
-            active_tab = await page.query_selector('ul.tab-list li.active button')
-            if active_tab:
-                tab_key = await active_tab.inner_text()
-                content = await page.query_selector('div.specification-content')
-                if content:
-                    items = {}
-                    lis = await content.query_selector_all('ul li')
-                    for li in lis:
-                        key_el = await li.query_selector('p')
-                        val_el = await li.query_selector('span')
-                        if key_el and val_el:
-                            key = await key_el.inner_text()
-                            value = await val_el.inner_text()
-                            items[key] = value
-                    tabbed_data[tab_key] = items
+            # Wait for the tabbing UI to load
+            await page.wait_for_selector('.tabbing-ui')
+            # Find all tabs
+            tabs = await page.query_selector_all('.tab-list .tab button')
+            # Iterate over each tab
+            for index, tab in enumerate(tabs):
+                try:
+                    # Wait for the tab to become visible
+                    await tab.wait_for_element_state('visible')
+                    
+                    # Scroll to the tab (optional)
+                    await tab.scroll_into_view_if_needed()
+                    await asyncio.sleep(1)  # Small delay to ensure it's fully in view
+                    
+                    # Close any blocking elements (if present)
+                    try:
+                        # Attempt to find and close any overlay (adjust the selector as needed)
+                        close_button = await page.query_selector('.overlay-close-button-selector')
+                        if close_button:
+                            await close_button.click()
+                            await asyncio.sleep(1)  # Wait for the overlay to disappear
+                    except Exception as ex:
+                        print(f"No blocking overlay detected for tab {index + 1}: {ex}")
+                    
+                    # Click the tab using Playwright
+                    await tab.click()
+                     # Wait for the content to load completely
+                    await page.wait_for_selector('.tabbing-body .tabbing-content')  # Adjust this selector based on the content
+                    await asyncio.sleep(3)  # Wait a bit longer for the first tab's content to load
+                    
+                    # Extract the data from the active tabbing body
+                    active_tab_content = await page.query_selector('.tabbing-body .tabbing-content')
+
+                    # Check if the content is a list of <li> elements
+                    list_items = await active_tab_content.query_selector_all('li')
+
+                    # Initialize a dictionary to store each tab's specific data
+                    tab_dict = {}
+                    counter = 1
+                    for item in list_items:
+                        p_element = await item.query_selector('p')
+                        i_element = await item.query_selector('i')
+                        span_element = await item.query_selector('span')
+                        
+                        # Case 1: <li> contains both <p> and <span>
+                        if p_element and span_element:
+                            key = await p_element.text_content()
+                            value = await span_element.text_content()
+                            tab_dict[key] = value
+                        
+                        # Case 2: <li> contains only <i> and <span>
+                        elif i_element and span_element:
+                            key = str(counter)
+                            value = await span_element.text_content()
+                            # Store the extracted value under the same key
+                            tab_dict[key] = value
+                            counter += 1
+                    # Store the extracted data for this tab in the main dictionary
+                    tab_data_key = await tab.text_content()
+                    self.tab_data[tab_data_key] = tab_dict
+
+                except Exception as e:
+                    print(f"Error clicking tab {index + 1} ({await tab.text_content()}): {e}")
         except Exception as e:
             logging.error(f"Error extracting tabbed data: {e}")
-        return tabbed_data
+        return tab_data
+
 
 class DetailsScraping:
     def __init__(self, url, retries=3):
