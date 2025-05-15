@@ -30,10 +30,19 @@ class OogooUsed:
 
             for attempt in range(self.retries):
                 try:
-                    await page.goto(self.url, wait_until="domcontentloaded")
-                    await page.wait_for_selector('.list-item-car', timeout=300000)
+                    await page.goto(self.url, wait_until="networkidle")
+                    # Try primary selector
+                    selector = '.list-item-car'
+                    element = await page.wait_for_selector(selector, timeout=300000)
+                    if not element:
+                        # Fallback selector
+                        selector = '.car-item'
+                        element = await page.wait_for_selector(selector, timeout=300000)
+                        logging.info(f"Used fallback selector {selector} for {self.url}")
 
-                    car_cards = await page.query_selector_all('.list-item-car')
+                    car_cards = await page.query_selector_all(selector)
+                    logging.info(f"Found {len(car_cards)} car cards on {self.url}")
+
                     for card in car_cards:
                         link = await self.scrape_link(card)
                         brand = await self.scrape_brand(card)
@@ -48,10 +57,11 @@ class OogooUsed:
                             'title': title,
                             **details
                         }
+                        logging.info(f"Scraped car: {link} | date_published: {car_data.get('date_published')}")
                         if not car_data.get('date_published'):
                             logging.warning(f"Car missing date_published: {link}")
                         cars.append(car_data)
-                        await asyncio.sleep(1)  # Delay to avoid rate-limiting
+                        await asyncio.sleep(1)
 
                     break
 
@@ -128,9 +138,9 @@ class OogooUsed:
             }
 
         try:
-            await page.goto(url, wait_until="domcontentloaded")
+            await page.goto(url, wait_until="networkidle")
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await page.wait_for_timeout(2000)
+            await page.wait_for_timeout(5000)  # Increased to 5 seconds
 
             submitter = await self.scrape_submitter(page)
             specification = await self.scrape_specification(page)
@@ -238,7 +248,7 @@ class OogooUsed:
             if element:
                 return await element.inner_text()
             # Fallback selector
-            element = await page.query_selector('.car-ad-posted p')
+            element = await page.query_selector('.car-ad-posted p, .ad-date')
             if element:
                 logging.info(f"Used fallback selector for relative_date: {url}")
                 return await element.inner_text()
@@ -295,7 +305,6 @@ class OogooUsed:
             logging.error(f"Error parsing publish date: {e}")
             publish_time = datetime.now() - timedelta(days=3)
             return publish_time.strftime("%Y-%m-%d %H:%M:%S")
-
 
 
 
