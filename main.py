@@ -22,18 +22,20 @@ if 'OGO_GCLOUD_KEY_JSON' not in os.environ:
 class ScraperMain:
     def __init__(self):
         self.yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        self.date_range = [(datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(3)]  # Last 3 days
         self.data_used = []
         self.data_certified = []
-        self.semaphore = asyncio.Semaphore(2)  # Reduced to 2 for stability
+        self.semaphore = asyncio.Semaphore(2)
 
     async def scrape_used(self):
         logging.info("Scraping used cars...")
         print("Scraping used cars...")
-        url = "https://oogoocar.com/ar/explore/used/all/all/all/all/list/0/basic?page=1"  # Single page for testing
+        url = "https://oogoocar.com/ar/explore/used/all/all/all/all/list/0/basic?page=1"
         scraper = OogooUsed(url)
         try:
             async with self.semaphore:
                 cars = await scraper.get_car_details()
+            logging.info(f"Scraped {len(cars)} used cars")
             self.filter_data(cars, "used")
         except Exception as e:
             logging.error(f"Error scraping used cars: {e}")
@@ -42,32 +44,38 @@ class ScraperMain:
     async def scrape_certified(self):
         logging.info("Scraping certified cars...")
         print("Scraping certified cars...")
-        url = "https://oogoocar.com/ar/explore/featured/all/all/certified/all/list/0/basic?page=1"  # Single page for testing
+        url = "https://oogoocar.com/ar/explore/featured/all/all/certified/all/list/0/basic?page=1"
         scraper = OogooCertified(url)
         try:
             async with self.semaphore:
                 cars = await scraper.get_car_details()
+            logging.info(f"Scraped {len(cars)} certified cars")
             self.filter_data(cars, "certified")
         except Exception as e:
             logging.error(f"Error scraping certified cars: {e}")
             print(f"Error scraping certified cars: {e}")
 
     def filter_data(self, cars, category):
+        logging.info(f"Filtering {len(cars)} {category} cars")
         for car in cars:
             date_published = car.get("date_published")
+            logging.info(f"Car: {car.get('link', 'No link')} | date_published: {date_published}")
             if not date_published:
                 logging.warning(f"Skipping car with missing date_published: {car.get('link', 'No link')}")
                 continue
             try:
                 date_part = date_published.split()[0]
-                if date_part == self.yesterday:
+                if date_part in self.date_range:
                     if category == "used":
                         self.data_used.append(car)
                     else:
                         self.data_certified.append(car)
+                else:
+                    logging.info(f"Filtered out car (date {date_part} not in {self.date_range}): {car.get('link', 'No link')}")
             except (AttributeError, IndexError) as e:
                 logging.warning(f"Invalid date_published format for car {car.get('link', 'No link')}: {date_published}")
                 continue
+        logging.info(f"Kept {len(self.data_used)} used cars and {len(self.data_certified)} certified cars")
 
     def save_to_excel(self):
         logging.info("Saving data to Excel...")
@@ -142,7 +150,7 @@ class ScraperMain:
 if __name__ == "__main__":
     scraper = ScraperMain()
     asyncio.run(scraper.run())
-
+    
 
 
 # import asyncio
