@@ -20,7 +20,10 @@ class OogooUsed:
     async def get_car_details(self):
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
-            context = await browser.new_context()
+            context = await browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+                viewport={"width": 1280, "height": 720}
+            )
             page = await context.new_page()
 
             page.set_default_navigation_timeout(300000)
@@ -31,17 +34,39 @@ class OogooUsed:
             for attempt in range(self.retries):
                 try:
                     await page.goto(self.url, wait_until="networkidle")
-                    # Try primary selector
-                    selector = '.list-item-car'
-                    element = await page.wait_for_selector(selector, timeout=300000)
-                    if not element:
-                        # Fallback selector
-                        selector = '.car-item'
-                        element = await page.wait_for_selector(selector, timeout=300000)
-                        logging.info(f"Used fallback selector {selector} for {self.url}")
+                    # Multiple scrolls to load dynamic content
+                    for _ in range(3):
+                        await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                        await page.wait_for_timeout(2000)
 
-                    car_cards = await page.query_selector_all(selector)
-                    logging.info(f"Found {len(car_cards)} car cards on {self.url}")
+                    # Try multiple selectors
+                    selectors = [
+                        '.list-item-car',
+                        '.car-item',
+                        '.car-listing',
+                        '.vehicle-item',
+                        'div[class*="car"]',
+                        '[data-car-id]'
+                    ]
+                    car_cards = []
+                    selected_selector = None
+                    for selector in selectors:
+                        try:
+                            await page.wait_for_selector(selector, timeout=10000)
+                            car_cards = await page.query_selector_all(selector)
+                            if car_cards:
+                                selected_selector = selector
+                                break
+                        except Exception:
+                            continue
+
+                    logging.info(f"Found {len(car_cards)} car cards on {self.url} using selector: {selected_selector or 'None'}")
+                    if not car_cards:
+                        # Log page HTML for debugging
+                        html = await page.content()
+                        with open('debug_page.html', 'w', encoding='utf-8') as f:
+                            f.write(html)
+                        logging.error(f"No car cards found on {self.url}. Saved HTML to debug_page.html")
 
                     for card in car_cards:
                         link = await self.scrape_link(card)
@@ -61,7 +86,7 @@ class OogooUsed:
                         if not car_data.get('date_published'):
                             logging.warning(f"Car missing date_published: {link}")
                         cars.append(car_data)
-                        await asyncio.sleep(1)
+                        await asyncio.sleep(2)  # Increased delay
 
                     break
 
@@ -81,7 +106,7 @@ class OogooUsed:
 
     async def scrape_brand(self, card):
         try:
-            element = await card.query_selector('.brand-car span')
+            element = await card.query_selector('.brand-car span, .car-brand, [data-brand]')
             return await element.inner_text() if element else None
         except Exception as e:
             logging.error(f"Error scraping brand: {e}")
@@ -89,7 +114,7 @@ class OogooUsed:
 
     async def scrape_price(self, card):
         try:
-            element = await card.query_selector('.price span')
+            element = await card.query_selector('.price span, .car-price, [data-price]')
             return await element.inner_text() if element else None
         except Exception as e:
             logging.error(f"Error scraping price: {e}")
@@ -106,12 +131,12 @@ class OogooUsed:
 
     async def scrape_title(self, card):
         try:
-            title_element = await card.query_selector('.title-car')
+            title_element = await card.query_selector('.title-car, .car-title')
             if not title_element:
                 return {"model": None, "distance": None}
 
-            model = await title_element.query_selector('span:nth-child(1)')
-            distance = await title_element.query_selector('span:nth-child(2)')
+            model = await title_element.query_selector('span:nth-child(1), .model')
+            distance = await title_element.query_selector('span:nth-child(2), .distance')
 
             model_text = await model.inner_text() if model else "Model not found"
             distance_text = await distance.inner_text() if distance else "Distance not found"
@@ -140,7 +165,7 @@ class OogooUsed:
         try:
             await page.goto(url, wait_until="networkidle")
             await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            await page.wait_for_timeout(5000)  # Increased to 5 seconds
+            await page.wait_for_timeout(5000)
 
             submitter = await self.scrape_submitter(page)
             specification = await self.scrape_specification(page)
@@ -205,7 +230,7 @@ class OogooUsed:
 
     async def scrape_description(self, page):
         try:
-            selector = '#description-section'
+            selector = '#description-section, .description, [data-description]'
             await page.wait_for_selector(selector, timeout=30000, state='visible')
             element = await page.query_selector(selector)
             description = await element.inner_text() if element else "No Description Found"
@@ -243,15 +268,19 @@ class OogooUsed:
 
     async def scrape_relative_date(self, page, url):
         try:
-            # Primary selector
-            element = await page.query_selector('.car-ad-posted figcaption p')
-            if element:
-                return await element.inner_text()
-            # Fallback selector
-            element = await page.query_selector('.car-ad-posted p, .ad-date')
-            if element:
-                logging.info(f"Used fallback selector for relative_date: {url}")
-                return await element.inner_text()
+            selectors = [
+                '.car-ad-posted figcaption p',
+                '.car-ad-posted p',
+                '.ad-date',
+                '[data-posted-date]',
+                '.posted-date'
+            ]
+            for selector in selectors:
+                element = await page.query_selector(selector)
+                if element:
+                    text = await element.inner_text()
+                    logging.info(f"Scraped relative_date using {selector} for {url}: {text}")
+                    return text
             logging.warning(f"Failed to scrape relative_date for {url}")
             return None
         except Exception as e:
@@ -305,7 +334,7 @@ class OogooUsed:
             logging.error(f"Error parsing publish date: {e}")
             publish_time = datetime.now() - timedelta(days=3)
             return publish_time.strftime("%Y-%m-%d %H:%M:%S")
-
+            
 
 
 # import asyncio
