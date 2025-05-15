@@ -41,13 +41,16 @@ class OogooCertified:
                         title = await self.scrape_title(card)
                         details = await self.scrape_more_details(link, page)
 
-                        cars.append({
+                        car_data = {
                             'brand': brand,
                             'price': price,
                             'link': link,
                             'title': title,
                             **details
-                        })
+                        }
+                        if not car_data.get('date_published'):
+                            logging.warning(f"Car missing date_published: {link}")
+                        cars.append(car_data)
                         await asyncio.sleep(1)  # Delay to avoid rate-limiting
 
                     break
@@ -134,7 +137,7 @@ class OogooCertified:
             description = await self.scrape_description(page)
             phone_number = await self.scrape_phone_number(page)
             ad_id = await self.scrape_id(page)
-            relative_date = await self.scrape_relative_date(page)
+            relative_date = await self.scrape_relative_date(page, url)
             date_published = self.get_publish_date_arabic(relative_date)
 
             return {
@@ -228,17 +231,30 @@ class OogooCertified:
             logging.error(f"Error scraping ad ID: {e}")
             return None
 
-    async def scrape_relative_date(self, page):
+    async def scrape_relative_date(self, page, url):
         try:
+            # Primary selector
             element = await page.query_selector('.car-ad-posted figcaption p')
-            return await element.inner_text() if element else None
+            if element:
+                return await element.inner_text()
+            # Fallback selector
+            element = await page.query_selector('.car-ad-posted p')
+            if element:
+                logging.info(f"Used fallback selector for relative_date: {url}")
+                return await element.inner_text()
+            logging.warning(f"Failed to scrape relative_date for {url}")
+            return None
         except Exception as e:
-            logging.error(f"Error scraping relative date: {e}")
+            logging.error(f"Error scraping relative_date for {url}: {e}")
             return None
 
     def get_publish_date_arabic(self, relative_date):
         try:
             current_time = datetime.now()
+            if not relative_date:
+                logging.warning("relative_date is None, using default date")
+                publish_time = current_time - timedelta(days=3)
+                return publish_time.strftime("%Y-%m-%d %H:%M:%S")
 
             # Arabic regex patterns for matching relative time
             hour_pattern = r'نُشر منذ (\d+) ساعة'
@@ -248,35 +264,38 @@ class OogooCertified:
             three_days_pattern = r'نُشر منذ (\d+) أيام'
 
             # Match for hours
-            match_hour = re.search(hour_pattern, relative_date) if relative_date else None
+            match_hour = re.search(hour_pattern, relative_date)
             if match_hour:
                 hours_ago = int(match_hour.group(1))
                 publish_time = current_time - timedelta(hours=hours_ago)
                 return publish_time.strftime("%Y-%m-%d %H:%M:%S")
 
             # Match for "one day ago"
-            if relative_date and re.search(one_day_pattern, relative_date):
+            if re.search(one_day_pattern, relative_date):
                 publish_time = current_time - timedelta(days=1)
                 return publish_time.strftime("%Y-%m-%d %H:%M:%S")
 
             # Match for "two days ago"
-            if relative_date and re.search(two_days_pattern, relative_date):
+            if re.search(two_days_pattern, relative_date):
                 publish_time = current_time - timedelta(days=2)
                 return publish_time.strftime("%Y-%m-%d %H:%M:%S")
 
             # Match for "three or more days ago"
-            match_three_days = re.search(three_days_pattern, relative_date) if relative_date else None
+            match_three_days = re.search(three_days_pattern, relative_date)
             if match_three_days:
                 days_ago = int(match_three_days.group(1))
                 publish_time = current_time - timedelta(days=days_ago)
                 return publish_time.strftime("%Y-%m-%d %H:%M:%S")
 
             # Default to "more than 3 days ago"
+            logging.warning(f"No regex match for relative_date: {relative_date}")
             publish_time = current_time - timedelta(days=3)
             return publish_time.strftime("%Y-%m-%d %H:%M:%S")
         except Exception as e:
             logging.error(f"Error parsing publish date: {e}")
-            return None
+            publish_time = datetime.now() - timedelta(days=3)
+            return publish_time.strftime("%Y-%m-%d %H:%M:%S")
+
 
 
 
