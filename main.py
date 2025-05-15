@@ -6,14 +6,6 @@ from datetime import datetime, timedelta
 from oogoo_used import OogooUsed
 from oogoo_certified import OogooCertified
 from SavingOnDrive import SavingOnDrive
-import logging
-
-# Configure logging
-logging.basicConfig(
-    filename='scraper.log',
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
 
 # Check if the environment variable is set
 if 'OGO_GCLOUD_KEY_JSON' not in os.environ:
@@ -24,52 +16,42 @@ class ScraperMain:
         self.yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
         self.data_used = []
         self.data_certified = []
-        self.semaphore = asyncio.Semaphore(2)
+        self.semaphore = asyncio.Semaphore(5)  # Limit concurrency
 
     async def scrape_used(self):
-        logging.info("Scraping used cars...")
         print("Scraping used cars...")
-        url = "https://oogoocar.com/ar/explore/used/all/all/all/all/list/0/basic?page=1"
-        scraper = OogooUsed(url)
-        try:
-            async with self.semaphore:
-                cars = await scraper.get_car_details()
-            logging.info(f"Scraped {len(cars)} used cars")
-            print(f"Scraped {len(cars)} used cars")
-            self.filter_data(cars, "used")
-        except Exception as e:
-            logging.error(f"Error scraping used cars: {e}")
-            print(f"Error scraping used cars: {e}")
+        for page in range(1, 3):
+            url = f"https://oogoocar.com/ar/explore/used/all/all/all/all/list/0/basic?page={page}"
+            scraper = OogooUsed(url)
+            try:
+                async with self.semaphore:
+                    cars = await scraper.get_car_details()
+                self.filter_data(cars, "used")
+            except Exception as e:
+                print(f"Error scraping used cars on page {page}: {e}")
 
     async def scrape_certified(self):
-        logging.info("Scraping certified cars...")
         print("Scraping certified cars...")
-        url = "https://oogoocar.com/ar/explore/featured/all/all/certified/all/list/0/basic?page=1"
-        scraper = OogooCertified(url)
-        try:
-            async with self.semaphore:
-                cars = await scraper.get_car_details()
-            logging.info(f"Scraped {len(cars)} certified cars")
-            print(f"Scraped {len(cars)} certified cars")
-            self.filter_data(cars, "certified")
-        except Exception as e:
-            logging.error(f"Error scraping certified cars: {e}")
-            print(f"Error scraping certified cars: {e}")
+        for page in range(1, 3):
+            url = f"https://oogoocar.com/ar/explore/featured/all/all/certified/all/list/0/basic?page={page}"
+            scraper = OogooCertified(url)
+            try:
+                async with self.semaphore:
+                    cars = await scraper.get_car_details()
+                self.filter_data(cars, "certified")
+            except Exception as e:
+                print(f"Error scraping certified cars on page {page}: {e}")
 
     def filter_data(self, cars, category):
-        logging.info(f"Filtering {len(cars)} {category} cars")
         for car in cars:
-            date_published = car.get("date_published")
-            logging.info(f"Car: {car.get('link', 'No link')} | date_published: {date_published} | brand: {car.get('brand')}")
-            # Temporarily keep all cars to debug
-            if category == "used":
-                self.data_used.append(car)
-            else:
-                self.data_certified.append(car)
-        logging.info(f"Kept {len(self.data_used)} used cars and {len(self.data_certified)} certified cars")
+            date_published = car.get("date_published", "").split()[0]
+            if date_published == self.yesterday:
+                if category == "used":
+                    self.data_used.append(car)
+                else:
+                    self.data_certified.append(car)
 
     def save_to_excel(self):
-        logging.info("Saving data to Excel...")
         print("Saving data to Excel...")
         files = []
         if self.data_used:
@@ -78,7 +60,6 @@ class ScraperMain:
             files.append(self.create_excel("Certified", self.data_certified))
 
         if not files:
-            logging.warning("No data to save.")
             print("No data to save.")
         return files
 
@@ -87,180 +68,52 @@ class ScraperMain:
         df = pd.DataFrame(data)
         with pd.ExcelWriter(file_name, engine='openpyxl') as writer:
             df.to_excel(writer, sheet_name=name.lower(), index=False)
-        logging.info(f"Saved {file_name}")
         print(f"Saved {file_name}")
         return file_name
     
     def upload_to_drive(self, files):
-        logging.info("Uploading to Google Drive...")
         print("Uploading to Google Drive...")
     
+        # Debug: Log the environment variable content length
         credentials_json = os.environ.get('OGO_GCLOUD_KEY_JSON')
         if not credentials_json:
-            logging.error("OGO_GCLOUD_KEY_JSON environment variable not found.")
             raise EnvironmentError("OGO_GCLOUD_KEY_JSON environment variable not found.")
     
-        logging.info(f"Loaded OGO_GCLOUD_KEY_JSON: {len(credentials_json)} characters")
         print(f"Loaded OGO_GCLOUD_KEY_JSON: {len(credentials_json)} characters")
         credentials_dict = json.loads(credentials_json)
 
-        logging.info(f"Excel files: {files}")
         print(f"Excel files: {files}")
 
+        # Initialize the SavingOnDrive class
         drive_saver = SavingOnDrive(credentials_dict)
         drive_saver.authenticate()
 
-        folder_name = self.yesterday
-        parent_folder_id = '1ayaYWPFnswsOP2nRiDtiwGuy_r43Dr3F'
+        # Folder name based on the date (yesterday)
+        folder_name = self.yesterday  # Ensure folder name is set
+        parent_folder_id = '1ayaYWPFnswsOP2nRiDtiwGuy_r43Dr3F'  # Parent folder ID for uploads
     
+        # Create a folder for the day (yesterday)
         folder_id = drive_saver.create_folder(folder_name, parent_folder_id)
-        logging.info(f"Created folder '{folder_name}' with ID: {folder_id}")
         print(f"Created folder '{folder_name}' with ID: {folder_id}")
     
+        # Upload the files to Google Drive
         for file_name in files:
             drive_saver.upload_file(file_name, folder_id)
-            logging.info(f"Uploaded {file_name} to Google Drive.")
             print(f"Uploaded {file_name} to Google Drive.")
 
-        logging.info("Files uploaded successfully.")
         print("Files uploaded successfully.")
 
     async def run(self):
         await asyncio.gather(self.scrape_used(), self.scrape_certified())
         files = self.save_to_excel()
-        logging.info(f"Files to upload: {files}")
         print(f"Files to upload: {files}")
         if files:
             self.upload_to_drive(files)
-            logging.info("Data uploaded.")
             print("Data uploaded.")
         else:
-            logging.warning("No data to upload.")
             print("No data to upload.")
+
 
 if __name__ == "__main__":
     scraper = ScraperMain()
     asyncio.run(scraper.run())
-
-
-
-
-# import asyncio
-# import os
-# import json
-# import pandas as pd
-# from datetime import datetime, timedelta
-# from oogoo_used import OogooUsed
-# from oogoo_certified import OogooCertified
-# from SavingOnDrive import SavingOnDrive
-
-# # Check if the environment variable is set
-# if 'OGO_GCLOUD_KEY_JSON' not in os.environ:
-#     raise EnvironmentError("OGO_GCLOUD_KEY_JSON not found.")
-
-# class ScraperMain:
-#     def __init__(self):
-#         self.yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
-#         self.data_used = []
-#         self.data_certified = []
-#         self.semaphore = asyncio.Semaphore(5)  # Limit concurrency
-
-#     async def scrape_used(self):
-#         print("Scraping used cars...")
-#         for page in range(1, 3):
-#             url = f"https://oogoocar.com/ar/explore/used/all/all/all/all/list/0/basic?page={page}"
-#             scraper = OogooUsed(url)
-#             try:
-#                 async with self.semaphore:
-#                     cars = await scraper.get_car_details()
-#                 self.filter_data(cars, "used")
-#             except Exception as e:
-#                 print(f"Error scraping used cars on page {page}: {e}")
-
-#     async def scrape_certified(self):
-#         print("Scraping certified cars...")
-#         for page in range(1, 3):
-#             url = f"https://oogoocar.com/ar/explore/featured/all/all/certified/all/list/0/basic?page={page}"
-#             scraper = OogooCertified(url)
-#             try:
-#                 async with self.semaphore:
-#                     cars = await scraper.get_car_details()
-#                 self.filter_data(cars, "certified")
-#             except Exception as e:
-#                 print(f"Error scraping certified cars on page {page}: {e}")
-
-#     def filter_data(self, cars, category):
-#         for car in cars:
-#             date_published = car.get("date_published", "").split()[0]
-#             if date_published == self.yesterday:
-#                 if category == "used":
-#                     self.data_used.append(car)
-#                 else:
-#                     self.data_certified.append(car)
-
-#     def save_to_excel(self):
-#         print("Saving data to Excel...")
-#         files = []
-#         if self.data_used:
-#             files.append(self.create_excel("Used", self.data_used))
-#         if self.data_certified:
-#             files.append(self.create_excel("Certified", self.data_certified))
-
-#         if not files:
-#             print("No data to save.")
-#         return files
-
-#     def create_excel(self, name, data):
-#         file_name = f"{name}.xlsx"
-#         df = pd.DataFrame(data)
-#         with pd.ExcelWriter(file_name, engine='openpyxl') as writer:
-#             df.to_excel(writer, sheet_name=name.lower(), index=False)
-#         print(f"Saved {file_name}")
-#         return file_name
-    
-#     def upload_to_drive(self, files):
-#         print("Uploading to Google Drive...")
-    
-#         # Debug: Log the environment variable content length
-#         credentials_json = os.environ.get('OGO_GCLOUD_KEY_JSON')
-#         if not credentials_json:
-#             raise EnvironmentError("OGO_GCLOUD_KEY_JSON environment variable not found.")
-    
-#         print(f"Loaded OGO_GCLOUD_KEY_JSON: {len(credentials_json)} characters")
-#         credentials_dict = json.loads(credentials_json)
-
-#         print(f"Excel files: {files}")
-
-#         # Initialize the SavingOnDrive class
-#         drive_saver = SavingOnDrive(credentials_dict)
-#         drive_saver.authenticate()
-
-#         # Folder name based on the date (yesterday)
-#         folder_name = self.yesterday  # Ensure folder name is set
-#         parent_folder_id = '1ayaYWPFnswsOP2nRiDtiwGuy_r43Dr3F'  # Parent folder ID for uploads
-    
-#         # Create a folder for the day (yesterday)
-#         folder_id = drive_saver.create_folder(folder_name, parent_folder_id)
-#         print(f"Created folder '{folder_name}' with ID: {folder_id}")
-    
-#         # Upload the files to Google Drive
-#         for file_name in files:
-#             drive_saver.upload_file(file_name, folder_id)
-#             print(f"Uploaded {file_name} to Google Drive.")
-
-#         print("Files uploaded successfully.")
-
-#     async def run(self):
-#         await asyncio.gather(self.scrape_used(), self.scrape_certified())
-#         files = self.save_to_excel()
-#         print(f"Files to upload: {files}")
-#         if files:
-#             self.upload_to_drive(files)
-#             print("Data uploaded.")
-#         else:
-#             print("No data to upload.")
-
-
-# if __name__ == "__main__":
-#     scraper = ScraperMain()
-#     asyncio.run(scraper.run())
