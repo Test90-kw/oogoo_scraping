@@ -5,7 +5,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from oogoo_used import OogooUsed
 from oogoo_certified import OogooCertified
-from SavingOnDrive import SavingOnDrive
+from saving_on_drive import SavingOnDrive
 import logging
 
 # Configure logging
@@ -54,12 +54,20 @@ class ScraperMain:
 
     def filter_data(self, cars, category):
         for car in cars:
-            date_published = car.get("date_published", "").split()[0]
-            if date_published == self.yesterday:
-                if category == "used":
-                    self.data_used.append(car)
-                else:
-                    self.data_certified.append(car)
+            date_published = car.get("date_published")
+            if not date_published:
+                logging.warning(f"Skipping car with missing date_published: {car.get('link', 'No link')}")
+                continue
+            try:
+                date_part = date_published.split()[0]
+                if date_part == self.yesterday:
+                    if category == "used":
+                        self.data_used.append(car)
+                    else:
+                        self.data_certified.append(car)
+            except (AttributeError, IndexError) as e:
+                logging.warning(f"Invalid date_published format for car {car.get('link', 'No link')}: {date_published}")
+                continue
 
     def save_to_excel(self):
         logging.info("Saving data to Excel...")
@@ -134,6 +142,7 @@ class ScraperMain:
 if __name__ == "__main__":
     scraper = ScraperMain()
     asyncio.run(scraper.run())
+
 
 
 # import asyncio
