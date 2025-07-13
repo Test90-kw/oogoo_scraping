@@ -90,7 +90,7 @@ class ScraperMain:
 
         # Folder name based on the date (yesterday)
         folder_name = self.yesterday  # Ensure folder name is set
-        parent_folder_id = '1ayaYWPFnswsOP2nRiDtiwGuy_r43Dr3F'  # Parent folder ID for uploads
+        parent_folder_id = '11MyzXZ_I4Sh7hDdk9eH0sABdtVt5tUwY'  # Parent folder ID for uploads
     
         # Create a folder for the day (yesterday)
         folder_id = drive_saver.create_folder(folder_name, parent_folder_id)
