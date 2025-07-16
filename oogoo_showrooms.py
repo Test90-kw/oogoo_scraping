@@ -1,36 +1,39 @@
 import asyncio
-from playwright.async_api import async_playwright
-from SavingOnDrive import SavingOnDrive
-from bs4 import BeautifulSoup
-import nest_asyncio
-import json
-import logging
-import pandas as pd
-from datetime import datetime
-import os
+from playwright.async_api import async_playwright  # For controlling browser interaction
+from SavingOnDrive import SavingOnDrive  # Custom class to handle Google Drive operations
+from bs4 import BeautifulSoup  # For parsing HTML content
+import nest_asyncio  # To allow nested event loops (needed in some environments)
+import json  # For handling JSON operations
+import logging  # For logging messages
+import pandas as pd  # For Excel export
+from datetime import datetime  # For timestamping files and folders
+import os  # For file system operations
 
-# Configure logging
+# Configure logging level to INFO
 logging.basicConfig(level=logging.INFO)
 
-# Allow nested event loops
+# Apply nest_asyncio for compatibility in nested async environments (e.g., Jupyter)
 nest_asyncio.apply()
 
 class OogooNewCarScraper:
     def __init__(self, url):
+        # Initialize with a single car URL
         self.url = url
         self.tab_data = {}
 
     async def scrape_data(self):
+        # Main function to scrape details for one car
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             context = await browser.new_context()
             page = await context.new_page()
             
             try:
-                await page.goto(self.url)
-                await page.wait_for_selector('div.detail-title-left')
-                soup = BeautifulSoup(await page.content(), 'html.parser')
+                await page.goto(self.url)  # Navigate to car page
+                await page.wait_for_selector('div.detail-title-left')  # Wait for key section
+                soup = BeautifulSoup(await page.content(), 'html.parser')  # Parse with BeautifulSoup
 
+                # Compile the full result into one dictionary
                 result = {
                     'title': await self.extract_title(soup),
                     'distance': await self.extract_distance(soup),
@@ -46,13 +49,14 @@ class OogooNewCarScraper:
                 await browser.close()
 
     async def extract_title(self, soup):
+        # Extract the car title
         title_div = soup.find('div', class_='detail-title-left')
         if title_div and title_div.find('h1'):
             return title_div.find('h1').text.strip()
         return None
 
     async def extract_distance(self, soup):
-        """Extract the distance."""
+        # Extract the car's distance info
         info_div = soup.find('div', class_='detail-title-left')
         if info_div:
             items = info_div.find_all('li')
@@ -61,7 +65,7 @@ class OogooNewCarScraper:
         return None
 
     async def extract_case(self, soup):
-        """Extract the case (e.g., new, used)."""
+        # Extract case (new/used)
         info_div = soup.find('div', class_='detail-title-left')
         if info_div:
             items = info_div.find_all('li')
@@ -70,20 +74,21 @@ class OogooNewCarScraper:
         return None
 
     async def extract_submitter(self, soup):
-        """Extract the submitter."""
+        # Extract the submitter name
         submitter_div = soup.find('div', class_='car-ad-posted')
         if submitter_div:
             return submitter_div.find('label').text.strip()
         return None
 
     async def extract_relative_date(self, soup):
-        """Extract the relative date."""
+        # Extract the relative post date
         submitter_div = soup.find('div', class_='car-ad-posted')
         if submitter_div:
             return submitter_div.find('p').text.strip()
         return None    
     
     async def extract_specifications(self, soup):
+        # Extract car specifications from spec section
         specifications = {}
         spec_div = soup.find('div', class_='specification')
         if spec_div:
@@ -100,45 +105,29 @@ class OogooNewCarScraper:
         return specifications
 
     async def extract_tabbed_data(self, page):
+        # Scrape tabbed content sections (e.g., features or options)
         tab_data = {}
         try:
-            # Wait for the tabbing UI to load
-            await page.wait_for_selector('.tabbing-ui')
+            await page.wait_for_selector('.tabbing-ui')  # Wait for tabbed UI
+            tabs = await page.query_selector_all('.tab-list .tab button')  # Get all tab buttons
             
-            # Find all tabs
-            tabs = await page.query_selector_all('.tab-list .tab button')
-            
-            # Iterate over each tab
             for index, tab in enumerate(tabs):
                 try:
-                    # Wait for the tab to become visible
                     await tab.wait_for_element_state('visible')
-                    
-                    # Scroll to the tab
                     await tab.scroll_into_view_if_needed()
                     await asyncio.sleep(1)
-                    
-                    # Click the tab
-                    await tab.click()
-                    
-                    # Wait for content to load
+                    await tab.click()  # Click the tab
                     await page.wait_for_selector('.tabbing-body .tabbing-content')
-                    await asyncio.sleep(3)  # Give extra time for content to load
+                    await asyncio.sleep(3)  # Allow time for loading
                     
-                    # Get the tab name before extracting content
                     tab_name = await tab.text_content()
-                    
-                    # Extract the data from the active tabbing body
                     active_tab_content = await page.query_selector('.tabbing-body .tabbing-content')
+                    
                     if active_tab_content:
-                        # Get all list items
                         list_items = await active_tab_content.query_selector_all('li')
-                        
-                        # Initialize dictionary for this tab
                         tab_dict = {}
                         counter = 1
                         
-                        # Process each list item
                         for item in list_items:
                             p_element = await item.query_selector('p')
                             i_element = await item.query_selector('i')
@@ -154,10 +143,9 @@ class OogooNewCarScraper:
                                 tab_dict[key] = value.strip()
                                 counter += 1
                         
-                        # Store the data only if we got content
                         if tab_dict:
                             tab_data[tab_name] = tab_dict
-                
+
                 except Exception as e:
                     logging.error(f"Error processing tab {index + 1}: {str(e)}")
                     continue
@@ -165,9 +153,8 @@ class OogooNewCarScraper:
         except Exception as e:
             logging.error(f"Error in extract_tabbed_data: {str(e)}")
         
-        # Deserialize and return tabbed_data properly formatted
         try:
-            # Check if it's a dictionary (don't run json.loads on it if it's already a dict)
+            # Return as JSON string if valid
             if isinstance(tab_data, dict):
                 return json.dumps(tab_data, ensure_ascii=False, indent=2)
             else:
@@ -180,11 +167,13 @@ class OogooNewCarScraper:
 
 class DetailsScraping:
     def __init__(self, url, retries=3):
+        # Initialize with the showroom listing URL and retry count
         self.url = url
         self.retries = retries
         self.showrooms_data = []
 
     async def get_car_details(self):
+        # Main function to scrape all showrooms and their cars
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
@@ -250,19 +239,23 @@ class DetailsScraping:
                 self.upload_to_drive(excel_file)
 
     async def scrape_brand(self, card):
+        # Extract brand name from showroom card
         element = await card.query_selector('.brand-car span')
         return await element.inner_text() if element else None
 
     async def scrape_title(self, card):
+        # Extract showroom title
         element = await card.query_selector('.title-car span')
         return await element.inner_text() if element else None
 
     async def scrape_link(self, card):
+        # Extract showroom page URL
         element = await card.query_selector('a')
         href = await element.get_attribute('href') if element else None
         return f"https://oogoocar.com{href}" if href else None
 
     async def get_cars_from_showroom(self, showroom_url):
+        # Scrape car links listed inside a showroom
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
@@ -281,6 +274,7 @@ class DetailsScraping:
                 await browser.close()
 
     async def scrape_more_details(self, url):
+        # Scrape contact/location info from showroom page
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=True)
             page = await browser.new_page()
@@ -303,6 +297,7 @@ class DetailsScraping:
                 await browser.close()
 
     async def scrape_time_list(self, page):
+        # Extract working hours from the page
         try:
             time_list_element = await page.query_selector('.time-list')
             if not time_list_element:
@@ -316,6 +311,7 @@ class DetailsScraping:
             return "Error"
 
     async def scrape_location(self, page):
+        # Get Google Maps iframe src link (for showroom location)
         try:
             location_element = await page.query_selector('.inner-map iframe')
             if location_element:
@@ -327,6 +323,7 @@ class DetailsScraping:
             return "Error"
 
     async def scrape_phone_number(self, page):
+        # Extract phone number from custom attribute
         try:
             phone_element = await page.query_selector('.detail-contact-info.max-md\\:hidden a.call')
             if phone_element:
@@ -339,12 +336,11 @@ class DetailsScraping:
             return "Error"
 
     def save_to_excel(self):
-        """Save scraped data to Excel file"""
+        # Convert the scraped data to an Excel file
         if not self.showrooms_data:
             logging.warning("No data to save to Excel")
             return None
 
-        # Prepare data for DataFrame
         excel_data = []
         for showroom in self.showrooms_data:
             cars_info = []
@@ -392,6 +388,7 @@ class DetailsScraping:
             return None
 
     def upload_to_drive(self, file_path):
+        # Upload the Excel file to Google Drive
         try:
             credentials_json = os.environ.get('SHOWROOMS_GCLOUD_KEY_JSON')
             if not credentials_json:
@@ -417,10 +414,12 @@ class DetailsScraping:
         except Exception as e:
             logging.error(f"Error uploading to Google Drive: {str(e)}")
 
+# Entry point of script
 async def main():
     url = "https://oogoocar.com/ar/explore/showrooms"
     scraper = DetailsScraping(url)
     await scraper.get_car_details()
 
+# Run async main
 if __name__ == "__main__":
     asyncio.run(main())
